@@ -37,6 +37,28 @@ const TIPOS = {
   mutuo_acordo: "Rescisão por Mútuo Acordo",
 };
 
+// Editable fields config for validation screen
+const EDIT_FIELDS = [
+  { key: "saldoFGTS", label: "Saldo FGTS (R$)", type: "number" },
+  { key: "horasExtrasMensais", label: "Horas Extras Média/Mês", type: "number" },
+  { key: "horasExtrasPercentual", label: "% Adicional HE", type: "number", placeholder: "50 ou 100" },
+  { key: "horasNoturnasMensais", label: "Horas Noturnas Média/Mês", type: "number" },
+  { key: "intervaloSuprimidoMinutos", label: "Intervalo Suprimido (min/dia)", type: "number" },
+  { key: "diasIntervaloSuprimido", label: "Dias c/ Intervalo Suprimido", type: "number" },
+  { key: "insalubridadeGrau", label: "Insalubridade", type: "select", options: { "": "Nenhuma", minimo: "Mínimo (10%)", medio: "Médio (20%)", maximo: "Máximo (40%)" } },
+  { key: "periculosidade", label: "Periculosidade (30%)", type: "bool" },
+  { key: "filhosMenores", label: "Filhos ≤14 anos", type: "number" },
+  { key: "gratificacaoMensal", label: "Gratificação Média/Mês (R$)", type: "number" },
+  { key: "gorjetasMensais", label: "Gorjetas Média/Mês (R$)", type: "number" },
+  { key: "comissaoMensal", label: "Comissão Média/Mês (R$)", type: "number" },
+  { key: "plrAnual", label: "PLR Anual (R$)", type: "number" },
+  { key: "plrMesesTrabalhados", label: "Meses Trab. no Período PLR", type: "number" },
+  { key: "estabilidadeTipo", label: "Estabilidade", type: "select", options: { "": "Nenhuma", gestante: "Gestante", cipa: "CIPA", acidentado: "Acidentado" } },
+  { key: "estabilidadeMesesRestantes", label: "Meses Restantes Estabilidade", type: "number" },
+  { key: "atrasoPagamento", label: "Atraso no Pagamento Rescisório", type: "bool" },
+  { key: "dispensaPreDataBase", label: "Dispensa nos 30d Pré Data-Base", type: "bool" },
+];
+
 /* ═══════════════════════════ HELPERS ═══════════════════════════ */
 
 function mB(a, b) {
@@ -62,29 +84,24 @@ function calc(f, dd) {
   const d = dd || {};
   const r = {};
 
-  // 1. Saldo de Salário
   r.saldoSalario = sd * dias;
 
-  // 2. Aviso Prévio Indenizado
   r.avisoIndenizado = sjc ? sd * dav : ac ? sd * dav * 0.5 : 0;
 
-  // 3. 13º Proporcional (projeta aviso como tempo de serviço)
+  // 13º Proporcional (projeta aviso como tempo de serviço)
   if (!jc) {
     const adm = new Date(f.dataAdmissao);
     const anoAdm = adm.getFullYear();
     const anoDem = dem.getFullYear();
-    // Se admissão no mesmo ano: conta meses desde admissão
-    // Se admissão em ano anterior: conta meses desde janeiro
     const inicioContagem13 = (anoAdm === anoDem) ? adm.getMonth() : 0;
     let m13 = (dem.getMonth() - inicioContagem13 + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
     m13 = Math.max(0, Math.min(m13, 12));
     r.decimoTerceiro = (sal / 12) * m13;
   } else r.decimoTerceiro = 0;
 
-  // 4. Férias Proporcionais + ⅓ (calcula a partir do aniversário do contrato)
+  // Férias Proporcionais + ⅓ (calcula a partir do aniversário do contrato)
   if (!jc) {
     const adm = new Date(f.dataAdmissao);
-    // Meses desde último aniversário do contrato
     let mesAdm = adm.getMonth(), diaAdm = adm.getDate();
     let ultimoAniv = new Date(dem.getFullYear(), mesAdm, diaAdm);
     if (ultimoAniv > dem) ultimoAniv.setFullYear(ultimoAniv.getFullYear() - 1);
@@ -95,61 +112,43 @@ function calc(f, dd) {
     r.feriasProporcionais = ((sal / 12) * mf) * (4 / 3);
   } else r.feriasProporcionais = 0;
 
-  // 5. Férias Vencidas + ⅓
   const qtdF = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
   r.feriasVencidas = sal * (4 / 3) * qtdF;
 
-  // 6. Férias em Dobro (Art. 137)
   const qtdDobro = parseInt(f.feriasEmDobroQtd) || 0;
   r.feriasEmDobro = sal * (4 / 3) * qtdDobro;
 
-  // 7. Multa 40% FGTS (inc. FGTS sobre aviso)
   const fgtsAv = r.avisoIndenizado * 0.08;
   const fgtsBase = (d.saldoFGTS != null ? d.saldoFGTS : sal * 0.08 * meses) + fgtsAv;
   r.multaFGTS = sjc ? fgtsBase * 0.40 : ac ? fgtsBase * 0.20 : 0;
 
-  // 8. Horas Extras
   r.horasExtras = (d.horasExtrasMensais > 0) ? sh * (1 + (d.horasExtrasPercentual || 50) / 100) * d.horasExtrasMensais * meses : 0;
-
-  // 9. Insalubridade
   r.adicInsalubridade = d.insalubridadeGrau ? SM * ({ minimo: .1, medio: .2, maximo: .4 }[d.insalubridadeGrau] || 0) * meses : 0;
-
-  // 10. Periculosidade
   r.adicPericulosidade = d.periculosidade ? sal * 0.30 * meses : 0;
-
-  // 11. Adicional Noturno
   r.adicNoturno = (d.horasNoturnasMensais > 0) ? sh * 0.20 * d.horasNoturnasMensais * meses : 0;
 
-  // 12. Intervalo Intrajornada (Art. 71 §4º — pós-Reforma: indenizatório)
   if (d.intervaloSuprimidoMinutos > 0) {
     const hSup = d.intervaloSuprimidoMinutos / 60;
     r.intervaloIntrajornada = sh * 1.5 * hSup * (d.diasIntervaloSuprimido || meses * 22);
   } else r.intervaloIntrajornada = 0;
 
-  // 13. Salário-Família
   r.salarioFamilia = (d.filhosMenores > 0 && sal <= 1906.04) ? 65.00 * d.filhosMenores * meses : 0;
-
-  // 14-16. Grat/Gorj/Comissão
   r.gratificacao = (d.gratificacaoMensal > 0) ? d.gratificacaoMensal * meses : 0;
   r.gorjetas = (d.gorjetasMensais > 0) ? d.gorjetasMensais * meses : 0;
   r.comissao = (d.comissaoMensal > 0) ? d.comissaoMensal * meses : 0;
 
-  // 17. Reflexo DSR 6,05%
   const varT = (r.horasExtras || 0) + (r.gorjetas || 0) + (r.comissao || 0) + (r.adicNoturno || 0);
   r.reflexoDSR = varT * DSR;
 
-  // 18. PLR Proporcional (somente se IA extraiu dos docs)
   if (d.plrAnual > 0) {
     const mPLR = d.plrMesesTrabalhados || dem.getMonth() + 1;
     r.plrProporcional = (d.plrAnual / 12) * mPLR;
   } else r.plrProporcional = 0;
 
-  // 19. Estabilidade (somente se IA extraiu dos docs)
   if (d.estabilidadeTipo && d.estabilidadeMesesRestantes > 0) {
     r.estabilidade = sal * d.estabilidadeMesesRestantes;
   } else r.estabilidade = 0;
 
-  // 20-22. Multas
   r.multaArt467 = 0;
   r.multaArt477 = d.atrasoPagamento ? sal : 0;
   r.indenizacaoArt9 = d.dispensaPreDataBase ? sal : 0;
@@ -159,7 +158,19 @@ function calc(f, dd) {
 
 /* ═══════════════════════════ AI ═══════════════════════════ */
 
-const EXTRACT = `Você é um extrator de dados trabalhistas brasileiros. Analise planilhas/holerites/ponto/FGTS e retorne APENAS JSON sem backticks nem explicação. Se não encontrar um campo, retorne null.
+const EXTRACT = `Você é um extrator de dados trabalhistas brasileiros altamente preciso. Analise o conteúdo abaixo — que pode ser holerites (Totvs, SAP, ADP, Senior, qualquer layout), controle de ponto, extrato FGTS ou histórico salarial — e extraia os campos em JSON puro.
+
+REGRAS:
+- Se não encontrar um campo com certeza, retorne null (NUNCA invente valores)
+- Para médias mensais, calcule a média dos meses disponíveis
+- Saldo FGTS: procure por "saldo para fins rescisórios" ou valor total
+- Horas extras: procure por "H.E.", "HE 50%", "HE 100%", "Hora Extra"
+- Insalubridade/Periculosidade: procure nos holerites por esses rubricas
+- Comissão/Gorjeta: procure por "comissão", "gorjeta", "gratificação"
+- PLR: procure por "PLR", "participação nos lucros", "PPR"
+- Estabilidade: procure por referências a gestante, CIPA, acidente de trabalho, auxílio-doença acidentário
+
+Retorne APENAS JSON sem backticks nem explicação:
 
 {
   "saldoFGTS": number|null,
@@ -201,13 +212,13 @@ async function aiAnalysis(verbas, f, hasDoc, dd) {
   const prompt = `Advogado trabalhista sênior. Resumo executivo PT-BR desta rescisão. Direto, profissional, destaque riscos.
 
 Admissão: ${f.dataAdmissao} | Demissão: ${f.dataDemissao} | Sal: R$${f.salario} | ${m}m | ${TIPOS[f.tipoRescisao]}
-Férias vencidas: ${f.feriasVencidas ? "Sim" : "Não"} | Docs: ${hasDoc ? "Sim" : "Não"}
-${hasDoc ? `Extraído: ${JSON.stringify(dd)}` : ""}
+Férias vencidas: ${f.feriasVencidas ? "Sim" : "Não"} | Docs: ${hasDoc ? "Sim (validados pelo cliente)" : "Não"}
+${hasDoc ? `Extraído e validado: ${JSON.stringify(dd)}` : ""}
 
 Verbas>0: ${Object.entries(verbas).filter(([_, v]) => v > 0).map(([k, v]) => `${V[k]?.l}: R$${v.toFixed(2)}`).join(" | ")}
 TOTAL: R$${total.toFixed(2)}
 
-${!hasDoc ? "⚠️ ESTIMATIVA sem documentos. Destaque isso claramente." : "✅ Dados reais extraídos dos documentos."}
+${!hasDoc ? "⚠️ ESTIMATIVA sem documentos. Destaque isso claramente." : "✅ Dados extraídos dos documentos e validados pelo cliente."}
 Max 8 linhas. Sem saudação.`;
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -234,8 +245,8 @@ function AV({ value, delay = 0 }) {
   return <span>{fmt(d)}</span>;
 }
 
-function Dots({ c }) {
-  return <div style={{ display: "flex", gap: 5 }}>{[0, 1, 2, 3].map(i => <div key={i} style={{ width: i <= c ? 24 : 16, height: 4, borderRadius: 2, background: i <= c ? "linear-gradient(90deg,#1a5276,#2980b9)" : "#d5dbe0", transition: "all .35s" }} />)}</div>;
+function Dots({ c, total = 5 }) {
+  return <div style={{ display: "flex", gap: 5 }}>{Array.from({ length: total }, (_, i) => <div key={i} style={{ width: i <= c ? 24 : 16, height: 4, borderRadius: 2, background: i <= c ? "linear-gradient(90deg,#1a5276,#2980b9)" : "#d5dbe0", transition: "all .35s" }} />)}</div>;
 }
 
 function F({ label, type, value, onChange, placeholder, select, options }) {
@@ -248,13 +259,6 @@ function F({ label, type, value, onChange, placeholder, select, options }) {
   );
 }
 
-function Chip({ l, v }) {
-  return <div style={{ padding: "7px 11px", background: "#eef3f8", borderRadius: 8, fontSize: 12 }}>
-    <div style={{ color: "#7f8c9b", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: .4 }}>{l}</div>
-    <div style={{ color: "#1a2d3d", fontWeight: 600, marginTop: 2 }}>{v}</div>
-  </div>;
-}
-
 function Info({ bg, bc, icon, children }) {
   return <div style={{ padding: "11px 15px", borderRadius: 10, border: `1px solid ${bc}`, display: "flex", gap: 8, alignItems: "flex-start", background: bg }}>
     <span>{icon}</span><div style={{ fontSize: 12, lineHeight: 1.5 }}>{children}</div>
@@ -262,6 +266,7 @@ function Info({ bg, bc, icon, children }) {
 }
 
 /* ═══════════════════════════ MAIN APP ═══════════════════════════ */
+// Steps: 0=info, 1=docs, 2=processing, 3=validate, 4=results
 
 export default function App() {
   const [step, setStep] = useState(0);
@@ -272,6 +277,7 @@ export default function App() {
   });
   const [files, setFiles] = useState([]);
   const [dd, setDD] = useState(null);
+  const [editDD, setEditDD] = useState(null); // editable copy for validation
   const [res, setRes] = useState(null);
   const [ai, setAi] = useState("");
   const [msg, setMsg] = useState("");
@@ -295,7 +301,8 @@ export default function App() {
     }; r.readAsArrayBuffer(file);
   });
 
-  const run = async () => {
+  // Step 1→2: Parse documents
+  const parseDocuments = async () => {
     setStep(2); let ext = null;
     if (files.length > 0) {
       if (!window.XLSX) {
@@ -307,21 +314,45 @@ export default function App() {
       for (const x of files) { if (/\.(xlsx|xls|csv)$/i.test(x.name)) all += `\n--- ${x.name} ---\n` + await readXL(x); }
       if (all.trim()) { setMsg("🤖 IA analisando documentos..."); ext = await aiParse(all.substring(0, 15000)); }
     }
-    setDD(ext);
+    if (ext) {
+      setDD(ext);
+      setEditDD({ ...ext });
+      setStep(3); // Go to validation
+    } else {
+      // No docs or parse failed — skip validation, go straight to calc
+      setDD(null);
+      setEditDD(null);
+      await runCalc(null);
+    }
+  };
+
+  // Step 1→4 (no docs) or Step 3→4 (after validation)
+  const runCalc = async (docData) => {
+    setStep(2);
     setMsg("Calculando 22 verbas...");
     await new Promise(r => setTimeout(r, 400));
-    const verbas = calc(f, ext);
+    const verbas = calc(f, docData);
     setRes(verbas);
     setMsg("Gerando análise...");
-    const analysis = await aiAnalysis(verbas, f, files.length > 0 && !!ext, ext);
+    const analysis = await aiAnalysis(verbas, f, !!docData, docData);
     setAi(analysis);
-    setStep(3);
+    setStep(4);
+  };
+
+  // Confirm validated data and calculate
+  const confirmAndCalc = () => {
+    setDD(editDD);
+    runCalc(editDD);
+  };
+
+  const updateField = (key, val) => {
+    setEditDD(p => ({ ...p, [key]: val }));
   };
 
   const reset = () => {
     setStep(0);
     setF({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa" });
-    setFiles([]); setDD(null); setRes(null); setAi("");
+    setFiles([]); setDD(null); setEditDD(null); setRes(null); setAi("");
   };
 
   const total = res ? Object.values(res).reduce((a, b) => a + b, 0) : 0;
@@ -340,7 +371,6 @@ export default function App() {
         @keyframes slideR{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
         @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
         .btn{font-family:'Source Sans 3',sans-serif;font-size:14px;font-weight:600;padding:13px 26px;border:none;border-radius:10px;cursor:pointer;transition:all .2s;letter-spacing:.2px}
         .btn:disabled{opacity:.3;cursor:not-allowed}
         .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
@@ -348,6 +378,12 @@ export default function App() {
         .row:last-child{border-bottom:none}
         details summary{list-style:none}
         details summary::-webkit-details-marker{display:none}
+        .toggle{width:40px;height:22px;border-radius:11px;cursor:pointer;position:relative;transition:all .2s;border:none}
+        .toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;transition:all .2s}
+        .toggle.on{background:#2980b9}
+        .toggle.on::after{left:21px}
+        .toggle.off{background:#cbd5e0}
+        .toggle.off::after{left:3px}
       `}</style>
 
       <div style={S.ctn}>
@@ -369,10 +405,10 @@ export default function App() {
             <div style={{ textAlign: "center", padding: "32px 0 24px" }}>
               <h1 style={S.ttl}>Calculadora de <span style={{ color: "#2980b9", textDecoration: "underline", textDecorationColor: "#2980b9", textUnderlineOffset: "4px" }}>verbas rescisórias</span></h1>
               <p style={{ fontSize: 14, color: "#5a7080", maxWidth: 490, margin: "10px auto 16px", lineHeight: 1.6 }}>
-                22 verbas. Anexe planilhas em qualquer formato — a IA extrai horas extras, adicionais, PLR, estabilidades e mais.
+                22 verbas. Anexe planilhas em qualquer formato — a IA extrai os dados e você valida antes do cálculo.
               </p>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
-                {["22 Verbas", "Parser IA", "Qualquer Excel", "FGTS Real", "DSR 6,05%", "Art. 137"].map((t, i) => (
+                {["22 Verbas", "Parser IA", "Validação", "FGTS Real", "DSR 6,05%", "Art. 137"].map((t, i) => (
                   <span key={t} style={{ ...S.tag, animation: `fadeUp .3s ease ${.07 * i}s both` }}>{t}</span>
                 ))}
               </div>
@@ -387,7 +423,6 @@ export default function App() {
                 <F label="Tipo de Rescisão" select options={TIPOS} value={f.tipoRescisao} onChange={v => s("tipoRescisao", v)} />
               </div>
 
-              {/* Férias */}
               <div style={{ marginTop: 16 }}>
                 <div onClick={() => s("feriasVencidas", !f.feriasVencidas)}
                   style={{ ...S.chk, borderColor: f.feriasVencidas ? "#2980b9" : "#cbd5e0", background: f.feriasVencidas ? "rgba(41,128,185,.04)" : "#f8fafb" }}>
@@ -432,7 +467,7 @@ export default function App() {
             <div style={S.card}>
               <h2 style={S.ch}>📄 Documentos para Análise IA</h2>
               <p style={{ fontSize: 13, color: "#5a7080", marginBottom: 16, lineHeight: 1.6 }}>
-                A IA lê planilhas em <strong>qualquer formato</strong> e extrai: horas extras, adicionais, comissões, FGTS, intervalo intrajornada, PLR, estabilidades e mais.
+                A IA lê planilhas em <strong>qualquer formato</strong> e extrai os dados. Você poderá <strong>revisar e corrigir</strong> tudo antes do cálculo.
               </p>
 
               <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
@@ -459,7 +494,7 @@ export default function App() {
                     </div>
                   ))}
                   <Info bg="linear-gradient(135deg,#e8f8f0,#d5f0e3)" bc="#6fcf97" icon="🤖">
-                    <span style={{ color: "#1a5c38" }}><strong>Parser IA ativado.</strong> Documentos serão lidos automaticamente. A IA extrai horas extras, adicionais, PLR, estabilidades e todos os dados relevantes.</span>
+                    <span style={{ color: "#1a5c38" }}><strong>Parser IA ativado.</strong> Após a extração, você poderá revisar e corrigir todos os dados antes do cálculo.</span>
                   </Info>
                 </div>
               )}
@@ -474,7 +509,9 @@ export default function App() {
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, gap: 10 }}>
                 <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={() => setStep(0)}>← Voltar</button>
-                <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={run}>⚖️ Calcular 22 Verbas</button>
+                <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={parseDocuments}>
+                  {files.length > 0 ? "🤖 Analisar Documentos" : "⚖️ Calcular Estimativa"}
+                </button>
               </div>
             </div>
           </div>
@@ -488,10 +525,69 @@ export default function App() {
           </div>
         )}
 
-        {/* ── STEP 3: RESULTS ── */}
-        {step === 3 && res && (
+        {/* ── STEP 3: VALIDATE EXTRACTED DATA ── */}
+        {step === 3 && editDD && (
           <div style={{ animation: "fadeUp .4s ease both" }}>
-            {/* Total */}
+            <div style={S.card}>
+              <h2 style={S.ch}>🔍 Confira os Dados Extraídos</h2>
+              <Info bg="linear-gradient(135deg,#e8f0fd,#dae4f8)" bc="#7bafd4" icon="✏️">
+                <span style={{ color: "#1a3d5c" }}>A IA extraiu estes dados dos seus documentos. <strong>Revise e corrija</strong> o que for necessário antes de calcular.</span>
+              </Info>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 18 }}>
+                {EDIT_FIELDS.map(({ key, label, type, options, placeholder }) => {
+                  const val = editDD[key];
+                  const hasValue = val !== null && val !== undefined && val !== "" && val !== false && val !== 0;
+
+                  if (type === "bool") {
+                    return (
+                      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: hasValue && val ? "#eef8f2" : "#f8fafb", borderRadius: 8, border: `1px solid ${hasValue && val ? "#6fcf97" : "#e8ecf0"}` }}>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: "#1a2d3d" }}>{label}</span>
+                        <button className={`toggle ${val ? "on" : "off"}`} onClick={() => updateField(key, !val)} />
+                      </div>
+                    );
+                  }
+
+                  if (type === "select") {
+                    return (
+                      <div key={key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        <label style={{ fontSize: 10, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5 }}>{label}</label>
+                        <select value={val || ""} onChange={e => updateField(key, e.target.value || null)}
+                          style={{ background: hasValue ? "#eef8f2" : undefined, borderColor: hasValue ? "#6fcf97" : undefined }}>
+                          {Object.entries(options).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <label style={{ fontSize: 10, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5 }}>{label}</label>
+                      <input type="number" placeholder={placeholder || "—"} value={val != null ? val : ""}
+                        onChange={e => updateField(key, e.target.value === "" ? null : parseFloat(e.target.value))}
+                        style={{ background: hasValue ? "#eef8f2" : undefined, borderColor: hasValue ? "#6fcf97" : undefined }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: 16, fontSize: 11, color: "#7f8c9b", lineHeight: 1.5 }}>
+                Campos em <span style={{ color: "#2a8c5a", fontWeight: 600 }}>verde</span> foram detectados nos documentos. Campos vazios não serão considerados no cálculo.
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, gap: 10 }}>
+                <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={() => setStep(1)}>← Voltar</button>
+                <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={confirmAndCalc}>
+                  ✅ Confirmar e Calcular
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 4: RESULTS ── */}
+        {step === 4 && res && (
+          <div style={{ animation: "fadeUp .4s ease both" }}>
             <div style={S.tot}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", letterSpacing: 1.1, textTransform: "uppercase" }}>Total Estimado da Rescisão</div>
               <div style={{ fontSize: 38, fontWeight: 700, color: "#fff", marginTop: 6, fontFamily: "'Playfair Display',serif" }}><AV value={total} /></div>
@@ -499,31 +595,10 @@ export default function App() {
                 <span style={S.tl}>{TIPOS[f.tipoRescisao]}</span>
                 <span style={S.tl}>{mB(f.dataAdmissao, f.dataDemissao)} meses</span>
                 <span style={S.tl}>22 verbas analisadas</span>
-                {dd && <span style={{ ...S.tl, background: "rgba(111,207,151,.2)", color: "#a8f0c8" }}>✅ Dados reais</span>}
+                {dd && <span style={{ ...S.tl, background: "rgba(111,207,151,.2)", color: "#a8f0c8" }}>✅ Dados validados</span>}
                 {!dd && <span style={{ ...S.tl, background: "rgba(255,200,50,.2)", color: "#ffd54f" }}>⚠️ Estimativa</span>}
               </div>
             </div>
-
-            {/* Extracted data */}
-            {dd && (
-              <div style={{ ...S.card, marginTop: 14 }}>
-                <h2 style={S.ch}>🔍 Dados Extraídos pela IA</h2>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                  {dd.saldoFGTS != null && <Chip l="Saldo FGTS" v={fmt(dd.saldoFGTS)} />}
-                  {dd.horasExtrasMensais > 0 && <Chip l="HE Média/Mês" v={`${dd.horasExtrasMensais}h (${dd.horasExtrasPercentual || 50}%)`} />}
-                  {dd.horasNoturnasMensais > 0 && <Chip l="H. Noturnas/Mês" v={`${dd.horasNoturnasMensais}h`} />}
-                  {dd.intervaloSuprimidoMinutos > 0 && <Chip l="Intervalo Suprimido" v={`${dd.intervaloSuprimidoMinutos}min/dia`} />}
-                  {dd.insalubridadeGrau && <Chip l="Insalubridade" v={dd.insalubridadeGrau} />}
-                  {dd.periculosidade && <Chip l="Periculosidade" v="Sim (30%)" />}
-                  {dd.comissaoMensal > 0 && <Chip l="Comissão/Mês" v={fmt(dd.comissaoMensal)} />}
-                  {dd.gorjetasMensais > 0 && <Chip l="Gorjetas/Mês" v={fmt(dd.gorjetasMensais)} />}
-                  {dd.gratificacaoMensal > 0 && <Chip l="Gratificação/Mês" v={fmt(dd.gratificacaoMensal)} />}
-                  {dd.plrAnual > 0 && <Chip l="PLR Anual" v={fmt(dd.plrAnual)} />}
-                  {dd.estabilidadeTipo && <Chip l="Estabilidade" v={`${dd.estabilidadeTipo} (${dd.estabilidadeMesesRestantes}m restantes)`} />}
-                  {dd.filhosMenores > 0 && <Chip l="Filhos ≤14" v={dd.filhosMenores} />}
-                </div>
-              </div>
-            )}
 
             {/* AI Analysis */}
             <div style={{ ...S.card, marginTop: 14 }}>
@@ -594,7 +669,7 @@ export default function App() {
             </div>
 
             <div style={{ marginTop: 14, padding: "12px 16px", background: "#f8fafb", borderRadius: 10, border: "1px solid #e4eaf0", fontSize: 10, color: "#7f8c9b", lineHeight: 1.6 }}>
-              <strong>Aviso Legal:</strong> {!dd ? "Valores são estimativas (ballpark figures). Anexe documentos para cálculo preciso." : "Valores baseados em dados extraídos por IA."} Ferramenta de apoio — revisão por advogado habilitado indispensável. SM: R$ {SM.toFixed(2)} · Sal-Família: R$ 65,00/filho (2025).
+              <strong>Aviso Legal:</strong> {!dd ? "Valores são estimativas (ballpark figures). Anexe documentos para cálculo preciso." : "Valores baseados em dados extraídos por IA e validados pelo cliente."} Ferramenta de apoio — revisão por advogado habilitado indispensável. SM: R$ {SM.toFixed(2)} · Sal-Família: R$ 65,00/filho (2025).
             </div>
 
             <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
