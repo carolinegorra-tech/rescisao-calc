@@ -352,7 +352,7 @@ export default function App() {
         {step === 0 && (
           <div style={{ animation: "fadeUp .4s ease both" }}>
             <div style={{ textAlign: "center", padding: "32px 0 24px" }}>
-              <h1 style={S.ttl}>Calculadora de verbas<br /><span style={{ color: "#2980b9" }}>rescisórias inteligente</span></h1>
+              <h1 style={S.ttl}>Calculadora de <span style={{ color: "#2980b9", textDecoration: "underline", textDecorationColor: "#2980b9", textUnderlineOffset: "4px" }}>verbas rescisórias</span></h1>
               <p style={{ fontSize: 14, color: "#5a7080", maxWidth: 490, margin: "10px auto 16px", lineHeight: 1.6 }}>
                 22 verbas. Anexe planilhas em qualquer formato — a IA extrai horas extras, adicionais, PLR, estabilidades e mais.
               </p>
