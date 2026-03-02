@@ -18,7 +18,7 @@ const V = {
   adicPericulosidade:    { l: "Adicional de Periculosidade",         i: "⚡", d: "30% do salário-base × meses" },
   adicNoturno:           { l: "Adicional Noturno",                   i: "🌙", d: "20% sobre hora normal (22h–5h) × meses" },
   intervaloIntrajornada: { l: "Intervalo Intrajornada Suprimido",    i: "🍽️", d: "Período suprimido + 50% — Art. 71 §4º CLT" },
-  salarioFamilia:        { l: "Salário-Família",                     i: "👨‍👩‍👧", d: "R$62,04/filho ≤14a (sal ≤ R$1.819,26) × meses" },
+  salarioFamilia:        { l: "Salário-Família",                     i: "👨‍👩‍👧", d: "R$65,00/filho ≤14a (sal ≤ R$1.906,04) × meses" },
   gratificacao:          { l: "Gratificação",                        i: "🎁", d: "Valores habituais pagos pelo empregador" },
   gorjetas:              { l: "Gorjetas",                            i: "🍷", d: "Valores recebidos a título de gorjeta" },
   comissao:              { l: "Comissão",                            i: "📈", d: "Valores recebidos a título de comissão" },
@@ -68,16 +68,31 @@ function calc(f, dd) {
   // 2. Aviso Prévio Indenizado
   r.avisoIndenizado = sjc ? sd * dav : ac ? sd * dav * 0.5 : 0;
 
-  // 3. 13º Proporcional (projeta aviso)
+  // 3. 13º Proporcional (projeta aviso como tempo de serviço)
   if (!jc) {
-    const m13 = (dem.getMonth() + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
-    r.decimoTerceiro = (sal / 12) * Math.min(m13, 12);
+    const adm = new Date(f.dataAdmissao);
+    const anoAdm = adm.getFullYear();
+    const anoDem = dem.getFullYear();
+    // Se admissão no mesmo ano: conta meses desde admissão
+    // Se admissão em ano anterior: conta meses desde janeiro
+    const inicioContagem13 = (anoAdm === anoDem) ? adm.getMonth() : 0;
+    let m13 = (dem.getMonth() - inicioContagem13 + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
+    m13 = Math.max(0, Math.min(m13, 12));
+    r.decimoTerceiro = (sal / 12) * m13;
   } else r.decimoTerceiro = 0;
 
-  // 4. Férias Proporcionais + ⅓
+  // 4. Férias Proporcionais + ⅓ (calcula a partir do aniversário do contrato)
   if (!jc) {
-    const mf = (meses % 12) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
-    r.feriasProporcionais = ((sal / 12) * Math.min(mf, 12)) * (4 / 3);
+    const adm = new Date(f.dataAdmissao);
+    // Meses desde último aniversário do contrato
+    let mesAdm = adm.getMonth(), diaAdm = adm.getDate();
+    let ultimoAniv = new Date(dem.getFullYear(), mesAdm, diaAdm);
+    if (ultimoAniv > dem) ultimoAniv.setFullYear(ultimoAniv.getFullYear() - 1);
+    let mf = (dem.getFullYear() - ultimoAniv.getFullYear()) * 12 + (dem.getMonth() - ultimoAniv.getMonth());
+    if (dem.getDate() >= 15 && dem.getDate() >= diaAdm) mf = Math.min(mf + (dem.getDate() < diaAdm ? 0 : 0), 12);
+    mf = mf + ((sjc || ac) ? Math.floor(dav / 30) : 0);
+    mf = Math.max(0, Math.min(mf, 12));
+    r.feriasProporcionais = ((sal / 12) * mf) * (4 / 3);
   } else r.feriasProporcionais = 0;
 
   // 5. Férias Vencidas + ⅓
@@ -112,7 +127,7 @@ function calc(f, dd) {
   } else r.intervaloIntrajornada = 0;
 
   // 13. Salário-Família
-  r.salarioFamilia = (d.filhosMenores > 0 && sal <= 1819.26) ? 62.04 * d.filhosMenores * meses : 0;
+  r.salarioFamilia = (d.filhosMenores > 0 && sal <= 1906.04) ? 65.00 * d.filhosMenores * meses : 0;
 
   // 14-16. Grat/Gorj/Comissão
   r.gratificacao = (d.gratificacaoMensal > 0) ? d.gratificacaoMensal * meses : 0;
@@ -565,7 +580,7 @@ export default function App() {
                     ["Periculosidade", "Sal × 30% × meses"],
                     ["Ad. Noturno", "(Sal ÷ 220) × 20% × h noturnas/mês × meses"],
                     ["Intervalo Intrajornada", "(Sal ÷ 220) × 1,5 × h suprimidas × dias — Art. 71§4º pós-Reforma"],
-                    ["Sal-Família", "R$62,04/filho ≤14a (sal≤R$1.819,26) × meses"],
+                    ["Sal-Família", "R$65,00/filho ≤14a (sal≤R$1.906,04) × meses"],
                     ["Gratificação/Gorjetas/Comissão", "Média mensal × meses"],
                     ["Reflexo DSR", "6,05% sobre variáveis (HE+gorjetas+comissões+ad.noturno)"],
                     ["PLR Proporcional", "Extraído dos docs: PLR anual ÷ 12 × meses no período"],
@@ -579,7 +594,7 @@ export default function App() {
             </div>
 
             <div style={{ marginTop: 14, padding: "12px 16px", background: "#f8fafb", borderRadius: 10, border: "1px solid #e4eaf0", fontSize: 10, color: "#7f8c9b", lineHeight: 1.6 }}>
-              <strong>Aviso Legal:</strong> {!dd ? "Valores são estimativas (ballpark figures). Anexe documentos para cálculo preciso." : "Valores baseados em dados extraídos por IA."} Ferramenta de apoio — revisão por advogado habilitado indispensável. SM: R$ {SM.toFixed(2)} (2025).
+              <strong>Aviso Legal:</strong> {!dd ? "Valores são estimativas (ballpark figures). Anexe documentos para cálculo preciso." : "Valores baseados em dados extraídos por IA."} Ferramenta de apoio — revisão por advogado habilitado indispensável. SM: R$ {SM.toFixed(2)} · Sal-Família: R$ 65,00/filho (2025).
             </div>
 
             <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
