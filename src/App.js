@@ -118,10 +118,6 @@ function calc(f, dd) {
   const qtdDobro = parseInt(f.feriasEmDobroQtd) || 0;
   r.feriasEmDobro = sal * (4 / 3) * qtdDobro;
 
-  const fgtsAv = r.avisoIndenizado * 0.08;
-  const fgtsBase = (d.saldoFGTS != null ? d.saldoFGTS : sal * 0.08 * meses) + fgtsAv;
-  r.multaFGTS = sjc ? fgtsBase * 0.40 : ac ? fgtsBase * 0.20 : 0;
-
   r.horasExtras = (d.horasExtrasMensais > 0) ? sh * (1 + (d.horasExtrasPercentual || 50) / 100) * d.horasExtrasMensais * meses : 0;
   r.adicInsalubridade = d.insalubridadeGrau ? SM * ({ minimo: .1, medio: .2, maximo: .4 }[d.insalubridadeGrau] || 0) * meses : 0;
   r.adicPericulosidade = d.periculosidade ? sal * 0.30 * meses : 0;
@@ -136,6 +132,20 @@ function calc(f, dd) {
   r.gratificacao = (d.gratificacaoMensal > 0) ? d.gratificacaoMensal * meses : 0;
   r.gorjetas = (d.gorjetasMensais > 0) ? d.gorjetasMensais * meses : 0;
   r.comissao = (d.comissaoMensal > 0) ? d.comissaoMensal * meses : 0;
+
+  // Multa 40% FGTS
+  // Na rescisão, o depósito de FGTS 8% incide sobre: saldo de salário, aviso prévio indenizado e 13º proporcional
+  // As demais verbas variáveis (HE, adicionais, comissões) já geraram FGTS mês a mês durante o contrato
+  const fgtsSobreRescisao = (r.saldoSalario + r.avisoIndenizado + r.decimoTerceiro) * 0.08;
+  let fgtsTotal;
+  if (d.saldoFGTS != null) {
+    // Saldo real do extrato + FGTS sobre verbas rescisórias
+    fgtsTotal = d.saldoFGTS + fgtsSobreRescisao;
+  } else {
+    // Estimativa: 8% sobre salários durante contrato + FGTS sobre verbas rescisórias
+    fgtsTotal = (sal * 0.08 * meses) + fgtsSobreRescisao;
+  }
+  r.multaFGTS = sjc ? fgtsTotal * 0.40 : ac ? fgtsTotal * 0.20 : 0;
 
   const varT = (r.horasExtras || 0) + (r.gorjetas || 0) + (r.comissao || 0) + (r.adicNoturno || 0);
   r.reflexoDSR = varT * DSR;
@@ -645,24 +655,24 @@ export default function App() {
                   {[
                     ["Saldo Salário", "(Sal ÷ 30) × dias trabalhados no mês da rescisão"],
                     ["Aviso Prévio", "(Sal ÷ 30) × (30 + 3/ano, máx 90d) — Lei 12.506/2011. Acordo=50%"],
-                    ["13º Proporcional", "(Sal ÷ 12) × meses no ano + projeção do aviso como tempo de serviço"],
-                    ["Férias + ⅓", "(Sal ÷ 12) × meses × 4/3, com projeção do aviso"],
-                    ["Férias Vencidas", "Sal × 4/3 × qtd de períodos não gozados"],
-                    ["Férias em Dobro", "Art. 137 CLT: Sal × 4/3 adicional por período com concessivo expirado"],
-                    ["Multa 40% FGTS", "(Saldo FGTS + 8% sobre aviso) × 40% (ou 20% acordo)"],
-                    ["Horas Extras", "(Sal ÷ 220) × (1+%) × média mensal × meses"],
-                    ["Insalubridade", `SM R$${SM} × grau (10/20/40%) × meses`],
-                    ["Periculosidade", "Sal × 30% × meses"],
-                    ["Ad. Noturno", "(Sal ÷ 220) × 20% × h noturnas/mês × meses"],
-                    ["Intervalo Intrajornada", "(Sal ÷ 220) × 1,5 × h suprimidas × dias — Art. 71§4º pós-Reforma"],
-                    ["Sal-Família", "R$65,00/filho ≤14a (sal≤R$1.906,04) × meses"],
-                    ["Gratificação/Gorjetas/Comissão", "Média mensal × meses"],
-                    ["Reflexo DSR", "6,05% sobre variáveis (HE+gorjetas+comissões+ad.noturno)"],
-                    ["PLR Proporcional", "Extraído dos docs: PLR anual ÷ 12 × meses no período"],
-                    ["Estabilidade", "Extraído dos docs: Sal × meses restantes (gestante/CIPA/acidentado)"],
-                    ["Multa Art. 477", "1 salário se atraso no pagamento rescisório"],
-                    ["Multa Art. 467", "50% verbas incontroversas não pagas na 1ª audiência"],
-                    ["Inden. Art. 9º", "1 salário se dispensa nos 30d antes da data-base"],
+                    ["13º Proporcional", "(Sal ÷ 12) × meses trabalhados no ano da demissão (se admissão no mesmo ano, conta a partir do mês de admissão) + projeção do aviso como tempo de serviço"],
+                    ["Férias + ⅓", "(Sal ÷ 12) × meses desde o último aniversário do contrato × 4/3 + projeção do aviso"],
+                    ["Férias Vencidas", "Sal × 4/3 × qtd de períodos aquisitivos completos não gozados"],
+                    ["Férias em Dobro", "Art. 137 CLT: Sal × 4/3 adicional por período cujo prazo concessivo (12m) expirou"],
+                    ["Multa 40% FGTS", "(Saldo FGTS real ou estimado + 8% sobre saldo de salário, aviso prévio indenizado e 13º proporcional) × 40% (ou 20% acordo)"],
+                    ["Horas Extras", "(Sal ÷ 220) × (1 + adicional%) × média mensal × meses"],
+                    ["Insalubridade", `SM (R$${SM.toFixed(2)}) × grau: mínimo 10%, médio 20%, máximo 40% × meses`],
+                    ["Periculosidade", "Sal × 30% × meses — Art. 193 CLT"],
+                    ["Ad. Noturno", "(Sal ÷ 220) × 20% × horas noturnas/mês (22h–5h) × meses"],
+                    ["Intervalo Intrajornada", "(Sal ÷ 220) × 1,5 × horas suprimidas/dia × dias — Art. 71§4º (pós-Reforma: indenizatório, apenas período suprimido)"],
+                    ["Sal-Família", "R$65,00/filho ≤14a para remuneração ≤ R$1.906,04 × meses — Portaria MPS/MF 6/2025"],
+                    ["Gratificação/Gorjetas/Comissão", "Média mensal extraída dos docs × meses"],
+                    ["Reflexo DSR", "6,05% sobre total de variáveis (HE + gorjetas + comissões + ad. noturno)"],
+                    ["PLR Proporcional", "Extraído dos docs: PLR anual ÷ 12 × meses trabalhados no período de apuração"],
+                    ["Estabilidade", "Extraído dos docs: Sal × meses restantes de estabilidade (gestante/CIPA/acidentado)"],
+                    ["Multa Art. 477", "1 salário se atraso no pagamento rescisório — Art. 477 §8º CLT"],
+                    ["Multa Art. 467", "50% das verbas incontroversas não pagas na 1ª audiência — Art. 467 CLT"],
+                    ["Inden. Art. 9º", "1 salário se dispensa nos 30d antes da data-base — Lei 7.238/84"],
                   ].map(([t, d], i) => <p key={i} style={{ marginTop: i ? 5 : 0 }}><strong>{t}:</strong> {d}</p>)}
                 </div>
               </details>
