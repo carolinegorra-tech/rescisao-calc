@@ -358,13 +358,13 @@ async function exportXLSX(res, f, dd) {
   const t = f.tipoRescisao;
   const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo";
 
-  const varTipos = (d.tiposVariavel) || [];
+  const varTipos = f.tiposVariavel || [];
   const temComissao = varTipos.includes("comissao") || varTipos.includes("grat_mensal");
   const temGratAjust = varTipos.includes("grat_ajustada");
-  const gratSem = d.gratAjustadaPeriod === "semestral";
+  const gratSem = f.gratAjustadaPeriod === "semestral";
   let mediaVar = 0;
-  if (temComissao) mediaVar += parseFloat(d.comissaoMedia12 || 0);
-  if (temGratAjust) mediaVar += parseFloat(d.gratAjustadaTotal || 0) / 12;
+  if (temComissao) mediaVar += parseFloat(f.comissaoMedia12 || 0);
+  if (temGratAjust) mediaVar += parseFloat(f.gratAjustadaTotal || 0) / 12;
   const remVal = sal + mediaVar;
   const remF = (temComissao || gratSem) ? remVal : sal;
   const rem13 = (mediaVar > 0) ? remVal : sal;
