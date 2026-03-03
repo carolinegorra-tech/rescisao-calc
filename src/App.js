@@ -10,7 +10,7 @@ const V = {
   feriasProporcionais:   { l: "Férias Proporcionais + ⅓",            i: "🏖️", d: "Meses desde último per. aquisitivo × 4/3" },
   feriasVencidas:        { l: "Férias Vencidas + ⅓",                 i: "⏰", d: "Períodos aquisitivos não gozados × sal × 4/3" },
   feriasEmDobro:         { l: "Férias em Dobro (Art. 137)",          i: "⚠️", d: "Período concessivo expirado → dobro + ⅓" },
-  multaFGTS:             { l: "Multa 40% FGTS",                      i: "🏦", d: "40% sobre saldo FGTS + 8% s/ saldo sal, aviso e 13º" },
+  multaFGTS:             { l: "Multa 40% FGTS",                      i: "🏦", d: "40% sobre saldo FGTS + 8% s/ saldo sal, aviso e 13º (férias indenizadas não incidem)" },
   horasExtras:           { l: "Horas Extras",                        i: "⏱️", d: "Sal÷220 × (1+%) × média mensal × meses" },
   adicInsalubridade:     { l: "Adicional de Insalubridade",          i: "☣️", d: "10/20/40% do SM × meses" },
   adicPericulosidade:    { l: "Adicional de Periculosidade",         i: "⚡", d: "30% do salário-base × meses" },
@@ -183,8 +183,8 @@ async function aiAnalysis(verbas, f, hasDoc, dd) {
       body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
     });
     const j = await r.json();
-    return j.content?.find(b => b.type === "text")?.text || "Analise indisponivel.";
-  } catch { return "Nao foi possivel gerar a analise."; }
+    return j.content?.find(b => b.type === "text")?.text || "Análise indisponível.";
+  } catch { return "Não foi possível gerar a análise."; }
 }
 
 function AV({ value, delay = 0 }) {
@@ -266,7 +266,7 @@ export default function App() {
     setStep(2); setMsg("Calculando 22 verbas...");
     await new Promise(r => setTimeout(r, 400));
     const verbas = calc(f, docData);
-    setRes(verbas); setMsg("Gerando analise...");
+    setRes(verbas); setMsg("Gerando análise...");
     const analysis = await aiAnalysis(verbas, f, !!docData, docData);
     setAi(analysis); setStep(4);
   };
@@ -309,8 +309,8 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ fontSize: 24 }}>&#9878;&#65039;</span>
             <div>
-              <div style={S.logo}>Rescisao<span style={{ color: "#2980b9" }}>Calc</span></div>
-              <div style={{ fontSize: 9, color: "#7f8c9b", letterSpacing: .7, textTransform: "uppercase" }}>22 Verbas - Parser IA</div>
+              <div style={S.logo}>Rescisão<span style={{ color: "#2980b9" }}>Calc</span></div>
+              <div style={{ fontSize: 9, color: "#7f8c9b", letterSpacing: .7, textTransform: "uppercase" }}>22 Verbas · Parser IA</div>
             </div>
           </div>
           <Dots c={step} />
@@ -318,21 +318,21 @@ export default function App() {
 
         {step === 0 && (<div style={{ animation: "fadeUp .4s ease both" }}>
           <div style={{ textAlign: "center", padding: "32px 0 24px" }}>
-            <h1 style={S.ttl}>Calculadora de <span style={{ color: "#2980b9", textDecoration: "underline", textDecorationColor: "#2980b9", textUnderlineOffset: "4px" }}>verbas rescisorias</span></h1>
-            <p style={{ fontSize: 14, color: "#5a7080", maxWidth: 490, margin: "10px auto 16px", lineHeight: 1.6 }}>22 verbas. Anexe planilhas em qualquer formato. A IA extrai os dados e voce valida antes do calculo.</p>
+            <h1 style={S.ttl}>Calculadora de <span style={{ color: "#2980b9", textDecoration: "underline", textDecorationColor: "#2980b9", textUnderlineOffset: "4px" }}>verbas rescisórias</span></h1>
+            <p style={{ fontSize: 14, color: "#5a7080", maxWidth: 490, margin: "10px auto 16px", lineHeight: 1.6 }}>22 verbas. Anexe planilhas em qualquer formato. A IA extrai os dados e você valida antes do cálculo.</p>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "center" }}>
-              {["22 Verbas", "Parser IA", "Validacao", "FGTS Real", "DSR 6,05%", "Art. 137"].map((t, i) => (
+              {["22 Verbas", "Parser IA", "Validação", "FGTS Real", "DSR 6,05%", "Art. 137"].map((t, i) => (
                 <span key={t} style={{ ...S.tag, animation: "fadeUp .3s ease " + (.07 * i) + "s both" }}>{t}</span>
               ))}
             </div>
           </div>
           <div style={S.card}>
-            <h2 style={S.ch}>Dados do Contrato</h2>
+            <h2 style={S.ch}>📋 Dados do Contrato</h2>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <F label="Data de Admissao" type="date" value={f.dataAdmissao} onChange={v => s("dataAdmissao", v)} />
-              <F label="Data de Demissao" type="date" value={f.dataDemissao} onChange={v => s("dataDemissao", v)} />
-              <F label="Salario Atual (R$)" type="number" placeholder="5000.00" value={f.salario} onChange={v => s("salario", v)} />
-              <F label="Tipo de Rescisao" select options={TIPOS} value={f.tipoRescisao} onChange={v => s("tipoRescisao", v)} />
+              <F label="Data de Admissão" type="date" value={f.dataAdmissao} onChange={v => s("dataAdmissao", v)} />
+              <F label="Data de Demissão" type="date" value={f.dataDemissao} onChange={v => s("dataDemissao", v)} />
+              <F label="Salário Atual (R$)" type="number" placeholder="5000.00" value={f.salario} onChange={v => s("salario", v)} />
+              <F label="Tipo de Rescisão" select options={TIPOS} value={f.tipoRescisao} onChange={v => s("tipoRescisao", v)} />
             </div>
             <div style={{ marginTop: 16 }}>
               <div onClick={() => s("feriasVencidas", !f.feriasVencidas)} style={{ ...S.chk, borderColor: f.feriasVencidas ? "#2980b9" : "#cbd5e0", background: f.feriasVencidas ? "rgba(41,128,185,.04)" : "#f8fafb" }}>
@@ -340,8 +340,8 @@ export default function App() {
                   {f.feriasVencidas && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>&#10003;</span>}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2d3d" }}>Ferias vencidas?</div>
-                  <div style={{ fontSize: 11, color: "#7f8c9b" }}>Periodos aquisitivos nao gozados</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2d3d" }}>Férias vencidas?</div>
+                  <div style={{ fontSize: 11, color: "#7f8c9b" }}>Períodos aquisitivos não gozados</div>
                 </div>
                 {f.feriasVencidas && (<div style={{ display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}>
                   <span style={{ fontSize: 11, color: "#5a7080" }}>Qtd:</span>
@@ -352,18 +352,18 @@ export default function App() {
               </div>
             </div>
             <div style={{ marginTop: 16, padding: "10px 13px", background: "#f8f9fa", borderRadius: 8, border: "1px solid #e2e6ea", fontSize: 11, color: "#6b7b8d", lineHeight: 1.55 }}>
-              <strong>Atencao:</strong> Este calculo nao contempla pagamentos previstos em acordo ou convencao coletiva de trabalho (ACT/CCT) e nao aplica correcao monetaria sobre o saldo do FGTS.
+              <strong>Atenção:</strong> Este calculo não contempla pagamentos previstos em acordo ou convenção coletiva de trabalho (ACT/CCT) e não aplica correção monetária sobre o saldo do FGTS.
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <button className="btn" disabled={!ok} style={{ background: ok ? "linear-gradient(135deg,#1a3d5c,#2980b9)" : "#cbd5e0", color: "#fff" }} onClick={() => setStep(1)}>Proximo - Documentos</button>
+              <button className="btn" disabled={!ok} style={{ background: ok ? "linear-gradient(135deg,#1a3d5c,#2980b9)" : "#cbd5e0", color: "#fff" }} onClick={() => setStep(1)}>Próximo → Documentos</button>
             </div>
           </div>
         </div>)}
 
         {step === 1 && (<div style={{ animation: "fadeUp .4s ease both" }}>
           <div style={S.card}>
-            <h2 style={S.ch}>Documentos para Analise IA</h2>
-            <p style={{ fontSize: 13, color: "#5a7080", marginBottom: 16, lineHeight: 1.6 }}>A IA le planilhas em <strong>qualquer formato</strong> e extrai os dados. Voce podera <strong>revisar e corrigir</strong> tudo antes do calculo.</p>
+            <h2 style={S.ch}>Documentos para Análise IA</h2>
+            <p style={{ fontSize: 13, color: "#5a7080", marginBottom: 16, lineHeight: 1.6 }}>A IA lê planilhas em <strong>qualquer formato</strong> e extrai os dados. Voce podera <strong>revisar e corrigir</strong> tudo antes do calculo.</p>
             <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); hF(e.dataTransfer.files); }} onClick={() => ref.current?.click()} style={{ border: "2px dashed " + (drag ? "#2980b9" : "#cbd5e0"), borderRadius: 12, padding: "28px 16px", textAlign: "center", cursor: "pointer", background: drag ? "rgba(41,128,185,.03)" : "#fafbfd", transition: "all .2s" }}>
               <input ref={ref} type="file" multiple accept=".xlsx,.xls,.csv,.pdf" style={{ display: "none" }} onChange={e => hF(e.target.files)} />
               <div style={{ fontSize: 34, marginBottom: 4 }}>{drag ? "&#128229;" : "&#128206;"}</div>
@@ -379,14 +379,14 @@ export default function App() {
                 </div>
                 <button onClick={e => { e.stopPropagation(); setFiles(p => p.filter((_, j) => j !== i)); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#8a96a3", padding: "2px 5px" }}>X</button>
               </div>))}
-              <Info bg="linear-gradient(135deg,#e8f8f0,#d5f0e3)" bc="#6fcf97" icon="&#129302;"><span style={{ color: "#1a5c38" }}><strong>Parser IA ativado.</strong> Apos a extracao, voce podera revisar e corrigir todos os dados.</span></Info>
+              <Info bg="linear-gradient(135deg,#e8f8f0,#d5f0e3)" bc="#6fcf97" icon="&#129302;"><span style={{ color: "#1a5c38" }}><strong>Parser IA ativado.</strong> Apos a extracao, você poderá revisar e corrigir todos os dados.</span></Info>
             </div>)}
             {files.length === 0 && (<div style={{ marginTop: 12 }}>
-              <Info bg="linear-gradient(135deg,#fef9e7,#fdf2d0)" bc="#f0d060" icon="&#9888;&#65039;"><span style={{ color: "#6b5a10" }}><strong>Sem documentos:</strong> Calculo sera estimativa. Verbas como HE, adicionais, comissoes, PLR e estabilidade so sao calculadas com documentos.</span></Info>
+              <Info bg="linear-gradient(135deg,#fef9e7,#fdf2d0)" bc="#f0d060" icon="&#9888;&#65039;"><span style={{ color: "#6b5a10" }}><strong>Sem documentos:</strong> Cálculo será estimativa. Verbas como HE, adicionais, comissões, PLR e estabilidade só são calculadas com documentos.</span></Info>
             </div>)}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, gap: 10 }}>
               <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={() => setStep(0)}>Voltar</button>
-              <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={parseDocuments}>{files.length > 0 ? "Analisar Documentos" : "Calcular Estimativa"}</button>
+              <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={parseDocuments}>{files.length > 0 ? "🤖 Analisar Documentos" : "⚖️ Calcular Estimativa"}</button>
             </div>
           </div>
         </div>)}
@@ -398,8 +398,8 @@ export default function App() {
 
         {step === 3 && editDD && (<div style={{ animation: "fadeUp .4s ease both" }}>
           <div style={S.card}>
-            <h2 style={S.ch}>Confira os Dados Extraidos</h2>
-            <Info bg="linear-gradient(135deg,#e8f0fd,#dae4f8)" bc="#7bafd4" icon="&#9999;&#65039;"><span style={{ color: "#1a3d5c" }}>A IA extraiu estes dados dos seus documentos. <strong>Revise e corrija</strong> o que for necessario.</span></Info>
+            <h2 style={S.ch}>🔍 Confira os Dados Extraídos</h2>
+            <Info bg="linear-gradient(135deg,#e8f0fd,#dae4f8)" bc="#7bafd4" icon="&#9999;&#65039;"><span style={{ color: "#1a3d5c" }}>A IA extraiu estes dados dos seus documentos. <strong>Revise e corrija</strong> o que for necessário.</span></Info>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 18 }}>
               {EDIT_FIELDS.map(({ key, label, type, options, placeholder }) => {
                 const val = editDD[key];
@@ -421,14 +421,14 @@ export default function App() {
             <div style={{ marginTop: 16, fontSize: 11, color: "#7f8c9b", lineHeight: 1.5 }}>Campos em <span style={{ color: "#2a8c5a", fontWeight: 600 }}>verde</span> foram detectados nos documentos.</div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, gap: 10 }}>
               <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={() => setStep(1)}>Voltar</button>
-              <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={confirmAndCalc}>Confirmar e Calcular</button>
+              <button className="btn" style={{ background: "linear-gradient(135deg,#1a3d5c,#2980b9)", color: "#fff" }} onClick={confirmAndCalc}>✅ Confirmar e Calcular</button>
             </div>
           </div>
         </div>)}
 
         {step === 4 && res && (<div style={{ animation: "fadeUp .4s ease both" }}>
           <div style={S.tot}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", letterSpacing: 1.1, textTransform: "uppercase" }}>Total Estimado da Rescisao</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)", letterSpacing: 1.1, textTransform: "uppercase" }}>Total Estimado da Rescisão</div>
             <div style={{ fontSize: 38, fontWeight: 700, color: "#fff", marginTop: 6, fontFamily: "'Playfair Display',serif" }}><AV value={total} /></div>
             <div style={{ display: "flex", gap: 5, marginTop: 10, flexWrap: "wrap" }}>
               <span style={S.tl}>{TIPOS[f.tipoRescisao]}</span>
@@ -440,13 +440,13 @@ export default function App() {
           </div>
 
           <div style={{ ...S.card, marginTop: 14 }}>
-            <h2 style={S.ch}>Analise Automatica</h2>
+            <h2 style={S.ch}>Análise Automática</h2>
             {!ai ? <div style={{ padding: "14px 0" }}>{[100, 75, 50].map((w, i) => <div key={i} style={{ height: 10, borderRadius: 5, width: w + "%", background: "linear-gradient(90deg,#e8eef3,#d0dae4,#e8eef3)", backgroundSize: "200% 100%", animation: "shimmer 1.3s infinite " + (i * .15) + "s", marginBottom: 7 }} />)}</div>
               : <div style={{ fontSize: 13, color: "#2a3a4a", lineHeight: 1.7, whiteSpace: "pre-wrap", padding: "11px 14px", background: "#f8fafb", borderRadius: 9, border: "1px solid #e4eaf0" }}>{ai}</div>}
           </div>
 
           <div style={{ ...S.card, marginTop: 14 }}>
-            <h2 style={S.ch}>Detalhamento - {pos.length} Verbas Apuradas</h2>
+            <h2 style={S.ch}>📊 Detalhamento — {pos.length} Verbas Apuradas</h2>
             {pos.map(([k, v], i) => (<div className="row" key={k} style={{ animation: "slideR .3s ease " + (i * .04) + "s both" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flex: 1 }}>
                 <span style={{ fontSize: 17, flexShrink: 0 }}>{V[k]?.i}</span>
@@ -466,7 +466,7 @@ export default function App() {
 
           <div style={{ ...S.card, marginTop: 14 }}>
             <details>
-              <summary style={{ fontSize: 12, fontWeight: 600, color: "#2a4a6a", cursor: "pointer" }}>Metodologia de Calculo (22 verbas)</summary>
+              <summary style={{ fontSize: 12, fontWeight: 600, color: "#2a4a6a", cursor: "pointer" }}>▶ Metodologia de Cálculo (22 verbas)</summary>
               <div style={{ fontSize: 11, color: "#5a7080", lineHeight: 1.7, marginTop: 10 }}>
                 {[
                   ["Saldo Salario", "(Sal / 30) x dias trabalhados no mes da rescisao"],
@@ -483,7 +483,7 @@ export default function App() {
                   ["Intervalo Intrajornada", "(Sal / 220) x 1,5 x horas suprimidas/dia x dias - Art. 71 par. 4o (pos-Reforma)"],
                   ["Sal-Familia", "R$65,00/filho ate 14a para remuneracao ate R$1.906,04 x meses - Portaria MPS/MF 6/2025"],
                   ["Gratificacao/Gorjetas/Comissao", "Media mensal extraida dos docs x meses"],
-                  ["Reflexo DSR", "6,05% sobre total de variaveis (HE + gorjetas + comissoes + ad. noturno)"],
+                  ["Reflexo DSR", "6,05% sobre total de variaveis (HE + gorjetas + comissões + ad. noturno)"],
                   ["PLR Proporcional", "Extraido dos docs: PLR anual / 12 x meses trabalhados no periodo de apuracao"],
                   ["Estabilidade", "Extraido dos docs: Sal x meses restantes de estabilidade (gestante/CIPA/acidentado)"],
                   ["Multa Art. 477", "1 salario se atraso no pagamento rescisorio - Art. 477 par. 8o CLT"],
@@ -495,15 +495,15 @@ export default function App() {
           </div>
 
           <div style={{ marginTop: 14, padding: "12px 16px", background: "#f8fafb", borderRadius: 10, border: "1px solid #e4eaf0", fontSize: 10, color: "#7f8c9b", lineHeight: 1.6 }}>
-            <strong>Aviso Legal:</strong> {!dd ? "Valores sao estimativas (ballpark figures). Anexe documentos para calculo preciso." : "Valores baseados em dados extraidos por IA e validados pelo cliente."} Ferramenta de apoio - revisao por advogado habilitado indispensavel. SM: R$ {SM.toFixed(2)} - Sal-Familia: R$ 65,00/filho (2025).
+            <strong>Aviso Legal:</strong> {!dd ? "Valores são estimativas (ballpark figures). Anexe documentos para cálculo preciso." : "Valores baseados em dados extraidos por IA e validados pelo cliente."} Ferramenta de apoio - revisão por advogado habilitado indispensável. SM: R$ {SM.toFixed(2)} - Sal-Familia: R$ 65,00/filho (2025).
           </div>
 
           <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
-            <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={reset}>Novo Calculo</button>
+            <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={reset}>🔄 Novo Cálculo</button>
           </div>
         </div>)}
 
-        <div style={{ textAlign: "center", padding: "26px 0 10px", fontSize: 9, color: "#8a96a3" }}>RescisaoCalc - 22 verbas - Parser IA</div>
+        <div style={{ textAlign: "center", padding: "26px 0 10px", fontSize: 9, color: "#8a96a3" }}>RescisãoCalc — 22 verbas · Parser IA · Ferramenta de apoio</div>
       </div>
     </div>
   );
