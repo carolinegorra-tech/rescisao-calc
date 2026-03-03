@@ -7,8 +7,8 @@ const V = {
   saldoSalario:          { l: "Saldo de Salário",                    i: "💰", d: "Dias trabalhados no mês da rescisão (sal÷30 × dias)" },
   avisoIndenizado:       { l: "Aviso Prévio Indenizado",             i: "📅", d: "30d + 3d/ano completo (máx 90d) — Lei 12.506/2011" },
   decimoTerceiro:        { l: "13º Salário Proporcional",            i: "🎄", d: "Meses no ano ÷ 12, c/ projeção do aviso prévio" },
-  feriasProporcionais:   { l: "Férias Proporcionais + ⅓",            i: "🏖️", d: "Meses desde último per. aquisitivo × 4/3" },
-  feriasVencidas:        { l: "Férias Vencidas + ⅓",                 i: "⏰", d: "Períodos aquisitivos não gozados × sal × 4/3" },
+  feriasProporcionais:   { l: "Férias Proporcionais + ⅓",            i: "🏖️", d: "Meses desde último per. aquisitivo + 1/3 constitucional" },
+  feriasVencidas:        { l: "Férias Vencidas + ⅓",                 i: "⏰", d: "Períodos aquisitivos não gozados × sal + 1/3 constitucional" },
   feriasEmDobro:         { l: "Férias em Dobro (Art. 137)",          i: "⚠️", d: "Período concessivo expirado → dobro + ⅓" },
   multaFGTS:             { l: "Multa 40% FGTS",                      i: "🏦", d: "40% sobre saldo FGTS + 8% s/ saldo sal, aviso e 13º (férias indenizadas não incidem)" },
   horasExtras:           { l: "Horas Extras",                        i: "⏱️", d: "Sal÷220 × (1+%) × média mensal × meses" },
@@ -106,7 +106,8 @@ function calc(f, dd) {
   // FGTS estimado usa rem (empregador depositava 8% sobre remuneracao)
   const remFGTS = (mediaVar > 0) ? rem : sal;
 
-  r.saldoSalario = sd * dias;
+  const lastDayOfMonth = new Date(dem.y, dem.m, 0).getDate();
+  r.saldoSalario = (dias >= lastDayOfMonth) ? sal : sd * dias;
   const sdRem = remFerias / 30;
   r.avisoIndenizado = sjc ? sdRem * dav : ac ? sdRem * dav * 0.5 : 0;
 
@@ -414,7 +415,9 @@ async function exportXLSX(res, f, dd) {
   let sub = 0, vi = 0;
   const addV = (n, m, v, terco) => { if (v > 0.005) { dataRow(n, m, v, VLBLUE, WHITE, vi++, !!terco); sub += v; } };
 
-  addV("Saldo de Salário (" + dem.d + " dias)", nr(sal) + " ÷ 30 × " + dem.d + " dias", sS);
+  const lastDay = new Date(dem.y, dem.m, 0).getDate();
+  const fullMonth = dem.d >= lastDay;
+  addV("Saldo de Salário (" + (fullMonth ? "mês integral" : dem.d + " dias") + ")", fullMonth ? "Mês integral — salário cheio" : nr(sal) + " ÷ 30 × " + dem.d + " dias", sS);
   if (av > 0) addV("Aviso Prévio Indenizado (" + dav + " dias)", nr(remF) + " ÷ 30 × " + dav + " dias" + (ac ? " × 50%" : "") + " — Lei 12.506", av);
   if (fvBase > 0) { addV("Férias Vencidas (" + qtdFV + " per.)", nr(remF) + " × " + qtdFV, fvBase); addV("   1/3 Constitucional — Férias Vencidas", nr(fvBase) + " ÷ 3", fvT, true); }
   if (fpBase > 0) { addV("Férias Proporcionais (" + mfp + " meses)", nr(remF) + " ÷ 12 × " + mfp, fpBase); addV("   1/3 Constitucional — Férias Proporcionais", nr(fpBase) + " ÷ 3", fpT, true); }
@@ -814,9 +817,9 @@ export default function App() {
                   ["Saldo Salario", "(Sal / 30) x dias trabalhados no mes da rescisao"],
                   ["Aviso Previo", "(Sal / 30) x (30 + 3/ano, max 90d) - Lei 12.506/2011. Acordo=50%"],
                   ["13o Proporcional", "(Sal / 12) x meses trabalhados no ano da demissao (se admissao no mesmo ano, conta a partir do mes de admissao) + projecao do aviso como tempo de servico"],
-                  ["Ferias + 1/3", "(Sal / 12) x meses desde o ultimo aniversario do contrato x 4/3 + projecao do aviso"],
-                  ["Ferias Vencidas", "Sal x 4/3 x qtd de periodos aquisitivos completos nao gozados"],
-                  ["Ferias em Dobro", "Art. 137 CLT: Sal x 4/3 adicional por periodo cujo prazo concessivo (12m) expirou"],
+                  ["Ferias + 1/3", "(Sal / 12) x meses desde o ultimo aniversario do contrato + 1/3 constitucional + projecao do aviso"],
+                  ["Ferias Vencidas", "Sal + 1/3 constitucional por periodo aquisitivo completo nao gozado"],
+                  ["Ferias em Dobro", "Art. 137 CLT: Sal + 1/3 constitucional adicional por periodo com prazo concessivo (12m) expirado"],
                   ["Multa 40% FGTS", "(Saldo FGTS real ou estimado + 8% sobre saldo de salario, aviso previo indenizado e 13o proporcional) x 40% (ou 20% acordo)"],
                   ["Horas Extras", "(Sal / 220) x (1 + adicional%) x media mensal x meses"],
                   ["Insalubridade", "SM (R$" + SM.toFixed(2) + ") x grau: minimo 10%, medio 20%, maximo 40% x meses"],
