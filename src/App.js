@@ -82,15 +82,38 @@ function calc(f, dd) {
   const d = dd || {};
   const r = {};
 
+  // Variavel: determinar remuneracao (sal + media variavel)
+  const varTipos = (dd && dd.tiposVariavel) || [];
+  const temComissao = varTipos.includes("comissao") || varTipos.includes("grat_mensal");
+  const temGratAjust = varTipos.includes("grat_ajustada");
+  const gratSemestral = (dd && dd.gratAjustadaPeriod === "semestral");
+  
+  // Media mensal do variavel
+  let mediaVar = 0;
+  if (temComissao) mediaVar += parseFloat((dd && dd.comissaoMedia12) || 0);
+  if (temGratAjust) mediaVar += parseFloat((dd && dd.gratAjustadaTotal) || 0) / 12;
+  
+  // Remuneracao = sal + media (para verbas que usam rem como base)
+  const rem = sal + mediaVar;
+  
+  // Para ferias/aviso: so usa rem se variavel mensal OU grat semestral+
+  // Se grat anual: so impacta 13o
+  const remFerias = (temComissao || gratSemestral) ? rem : sal;
+  const rem13 = (mediaVar > 0) ? rem : sal;
+  
+  // FGTS estimado usa rem (empregador depositava 8% sobre remuneracao)
+  const remFGTS = (mediaVar > 0) ? rem : sal;
+
   r.saldoSalario = sd * dias;
-  r.avisoIndenizado = sjc ? sd * dav : ac ? sd * dav * 0.5 : 0;
+  const sdRem = remFerias / 30;
+  r.avisoIndenizado = sjc ? sdRem * dav : ac ? sdRem * dav * 0.5 : 0;
 
   // 13o: count from admission month if same year, otherwise from January (m=1)
   if (!jc) {
     const inicio = (adm.y === dem.y) ? adm.m : 1;
     let m13 = (dem.m - inicio + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
     m13 = Math.max(0, Math.min(m13, 12));
-    r.decimoTerceiro = (sal / 12) * m13;
+    r.decimoTerceiro = (rem13 / 12) * m13;
   } else r.decimoTerceiro = 0;
 
   // Ferias proporcionais: months since last contract anniversary
@@ -103,14 +126,14 @@ function calc(f, dd) {
     if (mf < 0) mf += 12;
     mf += ((sjc || ac) ? Math.floor(dav / 30) : 0);
     mf = Math.max(0, Math.min(mf, 12));
-    r.feriasProporcionais = ((sal / 12) * mf) * (4 / 3);
+    r.feriasProporcionais = ((remFerias / 12) * mf) * (4 / 3);
   } else r.feriasProporcionais = 0;
 
   const qtdF = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
-  r.feriasVencidas = sal * (4 / 3) * qtdF;
+  r.feriasVencidas = remFerias * (4 / 3) * qtdF;
 
   const qtdDobro = parseInt(f.feriasEmDobroQtd) || 0;
-  r.feriasEmDobro = sal * (4 / 3) * qtdDobro;
+  r.feriasEmDobro = remFerias * (4 / 3) * qtdDobro;
 
   r.horasExtras = (d.horasExtrasMensais > 0) ? sh * (1 + (d.horasExtrasPercentual || 50) / 100) * d.horasExtrasMensais * meses : 0;
   r.adicInsalubridade = d.insalubridadeGrau ? SM * ({ minimo: .1, medio: .2, maximo: .4 }[d.insalubridadeGrau] || 0) * meses : 0;
@@ -132,7 +155,7 @@ function calc(f, dd) {
   if (d.saldoFGTS != null) {
     fgtsTotal = d.saldoFGTS + fgtsSobreRescisao;
   } else {
-    fgtsTotal = (sal * 0.08 * meses) + fgtsSobreRescisao;
+    fgtsTotal = (remFGTS * 0.08 * meses) + fgtsSobreRescisao;
   }
   r.multaFGTS = sjc ? fgtsTotal * 0.40 : ac ? fgtsTotal * 0.20 : 0;
 
@@ -356,7 +379,7 @@ function exportXLSX(res, f, dd) {
   if (res.multaFGTS > 0) {
     const fgtsResc = (res.saldoSalario + res.avisoIndenizado + res.decimoTerceiro) * 0.08;
     const pct = ac ? "20%" : "40%";
-    const saldoStr = d.saldoFGTS != null ? "Saldo real R$ " + d.saldoFGTS.toFixed(2) : "Saldo estimado R$ " + (sal * 0.08 * meses).toFixed(2);
+    const saldoStr = d.saldoFGTS != null ? "Saldo real R$ " + d.saldoFGTS.toFixed(2) : "Saldo estimado R$ " + (remFGTS * 0.08 * meses).toFixed(2);
     addRow("Multa " + pct + " FGTS", "(" + saldoStr + " + 8% sobre saldo sal/aviso/13º R$ " + fgtsResc.toFixed(2) + ") × " + pct, res.multaFGTS);
   }
 
@@ -414,7 +437,7 @@ function exportXLSX(res, f, dd) {
 
 export default function App() {
   const [step, setStep] = useState(0);
-  const [f, setF] = useState({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa" });
+  const [f, setF] = useState({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa", temVariavel: false, tiposVariavel: [], comissaoMedia12: "", gratAjustadaTotal: "", gratAjustadaPeriod: "", variavelMediaMensal: "" });
   const [files, setFiles] = useState([]);
   const [dd, setDD] = useState(null);
   const [editDD, setEditDD] = useState(null);
@@ -452,8 +475,11 @@ export default function App() {
       for (const x of files) { if (/\.(xlsx|xls|csv)$/i.test(x.name)) all += "\n--- " + x.name + " ---\n" + await readXL(x); }
       if (all.trim()) { setMsg("IA analisando documentos..."); ext = await aiParse(all.substring(0, 15000)); }
     }
-    if (ext) { setDD(ext); setEditDD({ ...ext }); setStep(3); }
-    else { setDD(null); setEditDD(null); await runCalc(null); }
+    if (ext) {
+      const merged = { ...ext, tiposVariavel: f.tiposVariavel || [], comissaoMedia12: f.comissaoMedia12, gratAjustadaTotal: f.gratAjustadaTotal, gratAjustadaPeriod: f.gratAjustadaPeriod };
+      setDD(merged); setEditDD({ ...merged }); setStep(3);
+    }
+    else { setDD(null); setEditDD(null); await runCalc({ tiposVariavel: f.tiposVariavel || [], comissaoMedia12: f.comissaoMedia12, gratAjustadaTotal: f.gratAjustadaTotal, gratAjustadaPeriod: f.gratAjustadaPeriod }); }
   };
 
   const runCalc = async (docData) => {
@@ -465,9 +491,12 @@ export default function App() {
     setAi(analysis); setStep(4);
   };
 
-  const confirmAndCalc = () => { setDD(editDD); runCalc(editDD); };
+  const confirmAndCalc = () => {
+    const merged = { ...editDD, tiposVariavel: f.tiposVariavel || [], comissaoMedia12: f.comissaoMedia12, gratAjustadaTotal: f.gratAjustadaTotal, gratAjustadaPeriod: f.gratAjustadaPeriod };
+    setDD(merged); runCalc(merged);
+  };
   const updateField = (key, val) => setEditDD(p => ({ ...p, [key]: val }));
-  const reset = () => { setStep(0); setF({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa" }); setFiles([]); setDD(null); setEditDD(null); setRes(null); setAi(""); };
+  const reset = () => { setStep(0); setF({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa", temVariavel: false, tiposVariavel: [], comissaoMedia12: "", gratAjustadaTotal: "", gratAjustadaPeriod: "", variavelMediaMensal: "" }); setFiles([]); setDD(null); setEditDD(null); setRes(null); setAi(""); };
 
   const total = res ? Object.values(res).reduce((a, b) => a + b, 0) : 0;
   const pos = res ? Object.entries(res).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]) : [];
@@ -544,6 +573,49 @@ export default function App() {
                   <input type="number" min="0" max="5" value={f.feriasEmDobroQtd} onChange={e => s("feriasEmDobroQtd", e.target.value)} style={{ width: 48, padding: "5px 7px", fontSize: 12, textAlign: "center" }} />
                 </div>)}
               </div>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <div onClick={() => s("temVariavel", !f.temVariavel)} style={{ ...S.chk, borderColor: f.temVariavel ? "#2980b9" : "#cbd5e0", background: f.temVariavel ? "rgba(41,128,185,.04)" : "#f8fafb" }}>
+                <div style={{ ...S.chkB, borderColor: f.temVariavel ? "#2980b9" : "#aab4c0", background: f.temVariavel ? "#2980b9" : "transparent" }}>
+                  {f.temVariavel && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2d3d" }}>Remuneração variável nos últimos 12 meses?</div>
+                  <div style={{ fontSize: 11, color: "#7f8c9b" }}>Comissões, gratificações, PLR, prêmios</div>
+                </div>
+              </div>
+              {f.temVariavel && (<div style={{ marginTop: 10, padding: "14px", background: "#f8fafb", borderRadius: 9, border: "1px solid #e4eaf0" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>Tipos de variável recebido</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {[["plr","PLR"],["premio","Prêmio"],["comissao","Comissões"],["grat_mensal","Gratif. ajustada mensal"],["grat_ajustada","Gratif. ajustada (total)"]].map(([k,l]) => {
+                    const sel = (f.tiposVariavel || []).includes(k);
+                    return <div key={k} onClick={() => {
+                      const cur = f.tiposVariavel || [];
+                      s("tiposVariavel", sel ? cur.filter(x => x !== k) : [...cur, k]);
+                    }} style={{ padding: "6px 12px", borderRadius: 16, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1.5px solid " + (sel ? "#2980b9" : "#cbd5e0"), background: sel ? "rgba(41,128,185,.08)" : "#fff", color: sel ? "#1a5276" : "#5a7080", transition: "all .2s" }}>{l}</div>;
+                  })}
+                </div>
+                {((f.tiposVariavel || []).includes("comissao") || (f.tiposVariavel || []).includes("grat_mensal")) && (<div style={{ marginTop: 12 }}>
+                  <F label="Média mensal (inc. DSR) nos últimos 12m (R$)" type="number" placeholder="Ex: 2500.00" value={f.comissaoMedia12} onChange={v => s("comissaoMedia12", v)} />
+                </div>)}
+                {(f.tiposVariavel || []).includes("grat_ajustada") && (<div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <F label="Valor TOTAL gratificações ajustadas 12m (R$)" type="number" placeholder="Ex: 30000.00" value={f.gratAjustadaTotal} onChange={v => s("gratAjustadaTotal", v)} />
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5, marginBottom: 4 }}>Periodicidade do pagamento</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[["semestral","Semestral ou menor"],["anual","Anual"]].map(([k,l]) => {
+                        const sel2 = f.gratAjustadaPeriod === k;
+                        return <div key={k} onClick={() => s("gratAjustadaPeriod", k)} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1.5px solid " + (sel2 ? "#2980b9" : "#cbd5e0"), background: sel2 ? "rgba(41,128,185,.08)" : "#fff", color: sel2 ? "#1a5276" : "#5a7080", flex: 1, textAlign: "center" }}>{l}</div>;
+                      })}
+                    </div>
+                    {f.gratAjustadaPeriod === "semestral" && <div style={{ marginTop: 6, fontSize: 10, color: "#1a6b3a", fontWeight: 500 }}>Impacta TUDO: 13º, férias, aviso, FGTS</div>}
+                    {f.gratAjustadaPeriod === "anual" && <div style={{ marginTop: 6, fontSize: 10, color: "#c0392b", fontWeight: 500 }}>Impacta SOMENTE o 13º</div>}
+                  </div>
+                </div>)}
+                {(f.tiposVariavel || []).some(t => ["comissao","grat_mensal","grat_ajustada"].includes(t)) && (<div style={{ marginTop: 10, padding: "8px 12px", background: "#e8f4fd", borderRadius: 8, border: "1px solid #b8d8f0", fontSize: 11, color: "#1a5276", lineHeight: 1.5 }}>
+                  <strong>Impacto:</strong> A média soma ao salário base = <strong>remuneração</strong>, nova base de cálculo.
+                </div>)}
+              </div>)}
             </div>
             <div style={{ marginTop: 16, padding: "10px 13px", background: "#f8f9fa", borderRadius: 8, border: "1px solid #e2e6ea", fontSize: 11, color: "#6b7b8d", lineHeight: 1.55 }}>
               <strong>Atenção:</strong> Este calculo não contempla pagamentos previstos em acordo ou convenção coletiva de trabalho (ACT/CCT) e não aplica correção monetária sobre o saldo do FGTS.
