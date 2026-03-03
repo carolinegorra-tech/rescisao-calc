@@ -307,7 +307,7 @@ export default function App() {
       <div style={S.ctn}>
         <div style={S.hdr}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <span style={{ fontSize: 24 }}>&#9878;&#65039;</span>
+            <span style={{ fontSize: 24 }}>⚖️</span>
             <div>
               <div style={S.logo}>Rescisão<span style={{ color: "#2980b9" }}>Calc</span></div>
               <div style={{ fontSize: 9, color: "#7f8c9b", letterSpacing: .7, textTransform: "uppercase" }}>22 Verbas · Parser IA</div>
@@ -337,7 +337,7 @@ export default function App() {
             <div style={{ marginTop: 16 }}>
               <div onClick={() => s("feriasVencidas", !f.feriasVencidas)} style={{ ...S.chk, borderColor: f.feriasVencidas ? "#2980b9" : "#cbd5e0", background: f.feriasVencidas ? "rgba(41,128,185,.04)" : "#f8fafb" }}>
                 <div style={{ ...S.chkB, borderColor: f.feriasVencidas ? "#2980b9" : "#aab4c0", background: f.feriasVencidas ? "#2980b9" : "transparent" }}>
-                  {f.feriasVencidas && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>&#10003;</span>}
+                  {f.feriasVencidas && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2d3d" }}>Férias vencidas?</div>
@@ -366,23 +366,23 @@ export default function App() {
             <p style={{ fontSize: 13, color: "#5a7080", marginBottom: 16, lineHeight: 1.6 }}>A IA lê planilhas em <strong>qualquer formato</strong> e extrai os dados. Voce podera <strong>revisar e corrigir</strong> tudo antes do calculo.</p>
             <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); hF(e.dataTransfer.files); }} onClick={() => ref.current?.click()} style={{ border: "2px dashed " + (drag ? "#2980b9" : "#cbd5e0"), borderRadius: 12, padding: "28px 16px", textAlign: "center", cursor: "pointer", background: drag ? "rgba(41,128,185,.03)" : "#fafbfd", transition: "all .2s" }}>
               <input ref={ref} type="file" multiple accept=".xlsx,.xls,.csv,.pdf" style={{ display: "none" }} onChange={e => hF(e.target.files)} />
-              <div style={{ fontSize: 34, marginBottom: 4 }}>{drag ? "&#128229;" : "&#128206;"}</div>
+              <div style={{ fontSize: 34, marginBottom: 4 }}>{drag ? "📥" : "📎"}</div>
               <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2d3d" }}>Clique ou arraste</div>
               <div style={{ fontSize: 11, color: "#8a96a3", marginTop: 2 }}>Excel, CSV ou PDF</div>
             </div>
             {files.length > 0 && (<div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 5 }}>
               {files.map((x, i) => (<div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", background: "#eef3f8", borderRadius: 8, animation: "slideR .25s ease " + (i * .06) + "s both" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <span style={{ fontSize: 15 }}>{/pdf/i.test(x.name) ? "&#128213;" : "&#128202;"}</span>
+                  <span style={{ fontSize: 15 }}>{/pdf/i.test(x.name) ? "📕" : "📊"}</span>
                   <span style={{ fontSize: 12, fontWeight: 500, color: "#1a2d3d" }}>{x.name}</span>
                   <span style={{ fontSize: 10, color: "#8a96a3" }}>({(x.size / 1024).toFixed(0)}KB)</span>
                 </div>
                 <button onClick={e => { e.stopPropagation(); setFiles(p => p.filter((_, j) => j !== i)); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#8a96a3", padding: "2px 5px" }}>X</button>
               </div>))}
-              <Info bg="linear-gradient(135deg,#e8f8f0,#d5f0e3)" bc="#6fcf97" icon="&#129302;"><span style={{ color: "#1a5c38" }}><strong>Parser IA ativado.</strong> Apos a extracao, você poderá revisar e corrigir todos os dados.</span></Info>
+              <Info bg="linear-gradient(135deg,#e8f8f0,#d5f0e3)" bc="#6fcf97" icon="🤖"><span style={{ color: "#1a5c38" }}><strong>Parser IA ativado.</strong> Apos a extracao, você poderá revisar e corrigir todos os dados.</span></Info>
             </div>)}
             {files.length === 0 && (<div style={{ marginTop: 12 }}>
-              <Info bg="linear-gradient(135deg,#fef9e7,#fdf2d0)" bc="#f0d060" icon="&#9888;&#65039;"><span style={{ color: "#6b5a10" }}><strong>Sem documentos:</strong> Cálculo será estimativa. Verbas como HE, adicionais, comissões, PLR e estabilidade só são calculadas com documentos.</span></Info>
+              <Info bg="linear-gradient(135deg,#fef9e7,#fdf2d0)" bc="#f0d060" icon="⚠️"><span style={{ color: "#6b5a10" }}><strong>Sem documentos:</strong> Cálculo será estimativa. Verbas como HE, adicionais, comissões, PLR e estabilidade só são calculadas com documentos.</span></Info>
             </div>)}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20, gap: 10 }}>
               <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={() => setStep(0)}>Voltar</button>
@@ -399,7 +399,7 @@ export default function App() {
         {step === 3 && editDD && (<div style={{ animation: "fadeUp .4s ease both" }}>
           <div style={S.card}>
             <h2 style={S.ch}>🔍 Confira os Dados Extraídos</h2>
-            <Info bg="linear-gradient(135deg,#e8f0fd,#dae4f8)" bc="#7bafd4" icon="&#9999;&#65039;"><span style={{ color: "#1a3d5c" }}>A IA extraiu estes dados dos seus documentos. <strong>Revise e corrija</strong> o que for necessário.</span></Info>
+            <Info bg="linear-gradient(135deg,#e8f0fd,#dae4f8)" bc="#7bafd4" icon="✏️"><span style={{ color: "#1a3d5c" }}>A IA extraiu estes dados dos seus documentos. <strong>Revise e corrija</strong> o que for necessário.</span></Info>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 18 }}>
               {EDIT_FIELDS.map(({ key, label, type, options, placeholder }) => {
                 const val = editDD[key];
