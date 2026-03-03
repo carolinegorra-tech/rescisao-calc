@@ -26,6 +26,8 @@ const V = {
   multaArt467:           { l: "Multa Art. 467 CLT",                  i: "⚖️", d: "50% verbas incontroversas na 1ª audiência" },
   multaArt477:           { l: "Multa Art. 477 CLT",                  i: "📜", d: "1 salário se atraso no pagamento rescisório" },
   indenizacaoArt9:       { l: "Inden. Art. 9º Lei 7.238/84",        i: "🔒", d: "1 salário se dispensa 30d antes da data-base" },
+  fgtsDepositoRescisorio:{ l: "FGTS 8% sobre Rescisórias",          i: "🏦", d: "8% sobre saldo sal. + aviso + 13º → acresce ao saldo FGTS" },
+  contribPrevidenciaria: { l: "Contribuição Previdenciária",         i: "🏛️", d: "Patronal sobre verbas de natureza salarial" },
 };
 
 const TIPOS = {
@@ -173,6 +175,21 @@ function calc(f, dd) {
   r.multaArt467 = 0;
   r.multaArt477 = d.atrasoPagamento ? sal : 0;
   r.indenizacaoArt9 = d.dispensaPreDataBase ? sal : 0;
+
+  // FGTS deposito sobre verbas rescisorias (valor que acresce ao saldo)
+  r.fgtsDepositoRescisorio = f.calcEncargos ? fgtsSobreRescisao : 0;
+
+  // Contribuicao previdenciaria patronal
+  if (f.calcEncargos) {
+    const percPrev = parseFloat(f.percPrevidencia || 28.8) / 100;
+    const basePrevidencia = r.saldoSalario + r.avisoIndenizado + r.decimoTerceiro +
+      (r.horasExtras || 0) + (r.adicInsalubridade || 0) + (r.adicPericulosidade || 0) +
+      (r.adicNoturno || 0) + (r.comissao || 0) + (r.gorjetas || 0) + (r.gratificacao || 0);
+    r.contribPrevidenciaria = basePrevidencia * percPrev;
+  } else {
+    r.contribPrevidenciaria = 0;
+  }
+
   return r;
 }
 
@@ -326,110 +343,180 @@ function exportXLSX(res, f, dd) {
   const t = f.tipoRescisao;
   const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo", jc = t === "justa_causa";
 
-  const rows = [
+  // Remuneracao
+  const varTipos = (d.tiposVariavel) || [];
+  const temComissao = varTipos.includes("comissao") || varTipos.includes("grat_mensal");
+  const temGratAjust = varTipos.includes("grat_ajustada");
+  const gratSemestral = d.gratAjustadaPeriod === "semestral";
+  let mediaVar = 0;
+  if (temComissao) mediaVar += parseFloat(d.comissaoMedia12 || 0);
+  if (temGratAjust) mediaVar += parseFloat(d.gratAjustadaTotal || 0) / 12;
+  const remVal = sal + mediaVar;
+  const remFerias = (temComissao || gratSemestral) ? remVal : sal;
+  const rem13 = (mediaVar > 0) ? remVal : sal;
+  const remFGTS = (mediaVar > 0) ? remVal : sal;
+
+  // Calc components
+  const saldoSal = res.saldoSalario || 0;
+  const aviso = res.avisoIndenizado || 0;
+
+  // 13o
+  const inicio13 = (adm.y === dem.y) ? adm.m : 1;
+  let m13 = (dem.m - inicio13 + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
+  m13 = Math.max(0, Math.min(m13, 12));
+  const dias13 = Math.round(m13 * 30);
+  const val13 = res.decimoTerceiro || 0;
+
+  // Ferias vencidas
+  const qtdFV = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
+  const fvBase = qtdFV > 0 ? remFerias * qtdFV : 0;
+  const fvTerco = fvBase / 3;
+  const fvTotal = fvBase + fvTerco;
+
+  // Ferias proporcionais
+  let anivAno = dem.y;
+  if (dem.m < adm.m || (dem.m === adm.m && dem.d < adm.d)) anivAno--;
+  let mfp = dem.m - adm.m;
+  if (anivAno < dem.y) mfp = (dem.y - anivAno) * 12 + (dem.m - adm.m);
+  if (dem.m < adm.m) mfp = dem.m + 12 - adm.m;
+  if (anivAno === dem.y) mfp = dem.m - adm.m;
+  if (mfp < 0) mfp += 12;
+  mfp += ((sjc || ac) ? Math.floor(dav / 30) : 0);
+  mfp = Math.max(0, Math.min(mfp, 12));
+  const fpBase = jc ? 0 : (remFerias / 12) * mfp;
+  const fpTerco = fpBase / 3;
+  const fpTotal = fpBase + fpTerco;
+
+  // Ferias em dobro
+  const qtdDobro = parseInt(f.feriasEmDobroQtd) || 0;
+  const fdBase = remFerias * qtdDobro;
+  const fdTerco = fdBase / 3;
+  const fdTotal = fdBase + fdTerco;
+
+  // FGTS
+  const fgtsSobreResc = (saldoSal + aviso + val13) * 0.08;
+  const saldoFGTSEstimado = d.saldoFGTS != null ? d.saldoFGTS : (remFGTS * 0.08 * meses);
+  const saldoFGTSTotal = saldoFGTSEstimado + fgtsSobreResc;
+  const multaFGTS = sjc ? saldoFGTSTotal * 0.40 : ac ? saldoFGTSTotal * 0.20 : 0;
+
+  const r = [
     ["RESCISÃOCALC — DETALHAMENTO DE VERBAS RESCISÓRIAS", "", ""],
     ["", "", ""],
     ["DADOS DO CONTRATO", "", ""],
     ["Data de Admissão", f.dataAdmissao, ""],
     ["Data de Demissão", f.dataDemissao, ""],
-    ["Salário Base", fmt(sal), ""],
-    ["Tipo de Rescisão", TIPOS[t], ""],
-    ["Tempo de Serviço (meses)", meses, ""],
-    ["", "", ""],
-    ["VERBA", "MEMÓRIA DE CÁLCULO", "VALOR (R$)"],
+    ["Salário Base (R$)", "", sal],
   ];
+  if (mediaVar > 0) {
+    r.push(["Variável Mensal — média 12m (R$)", "", mediaVar]);
+    r.push(["Remuneração = Sal + Variável (R$)", "", remVal]);
+    const imp = (temComissao || gratSemestral) ? "aviso, 13º, férias, FGTS" : "apenas 13º";
+    r.push(["Impacto da variável", imp, ""]);
+  }
+  r.push(["Tipo de Rescisão", TIPOS[t], ""]);
+  r.push(["Tempo de Serviço (meses)", "", meses]);
+  r.push(["Dias de Aviso Prévio", "", dav]);
+  r.push(["", "", ""]);
 
-  const addRow = (name, formula, value) => {
-    rows.push([name, formula, value]);
-  };
+  // === VERBAS RESCISORIAS ===
+  r.push(["VERBAS RESCISÓRIAS", "MEMÓRIA DE CÁLCULO", "VALOR (R$)"]);
+  r.push(["", "", ""]);
 
-  // Saldo de Salário
-  addRow("Saldo de Salário", "R$ " + sal.toFixed(2) + " ÷ 30 × " + dem.d + " dias", res.saldoSalario);
+  // Saldo de salario
+  r.push(["Saldo de Salário", "R$ " + sal.toFixed(2) + " ÷ 30 × " + dem.d + " dias", saldoSal]);
 
-  // Aviso Prévio
-  if (res.avisoIndenizado > 0) {
-    const pct = ac ? " × 50%" : "";
-    addRow("Aviso Prévio Indenizado", "R$ " + sal.toFixed(2) + " ÷ 30 × " + dav + " dias" + pct + " (Lei 12.506/2011)", res.avisoIndenizado);
+  // Aviso previo
+  if (aviso > 0) {
+    const baseAv = remFerias;
+    const pctAv = ac ? " × 50%" : "";
+    r.push(["Aviso Prévio Indenizado (" + dav + " dias)", "R$ " + baseAv.toFixed(2) + " ÷ 30 × " + dav + " dias" + pctAv, aviso]);
+  }
+
+  // Ferias vencidas (separado base + 1/3)
+  if (fvTotal > 0) {
+    r.push(["Férias Vencidas (" + qtdFV + " período" + (qtdFV > 1 ? "s" : "") + ")", "R$ " + remFerias.toFixed(2) + " × " + qtdFV, fvBase]);
+    r.push(["1/3 Constitucional — Férias Vencidas", "R$ " + fvBase.toFixed(2) + " ÷ 3", fvTerco]);
+  }
+
+  // Ferias proporcionais (separado base + 1/3)
+  if (fpTotal > 0) {
+    r.push(["Férias Proporcionais (" + mfp + " meses)", "R$ " + remFerias.toFixed(2) + " ÷ 12 × " + mfp + " meses", fpBase]);
+    r.push(["1/3 Constitucional — Férias Proporcionais", "R$ " + fpBase.toFixed(2) + " ÷ 3", fpTerco]);
+  }
+
+  // Ferias em dobro (separado base + 1/3)
+  if (fdTotal > 0) {
+    r.push(["Férias em Dobro — Art. 137 (" + qtdDobro + " período" + (qtdDobro > 1 ? "s" : "") + ")", "R$ " + remFerias.toFixed(2) + " × " + qtdDobro + " (prazo concessivo expirado)", fdBase]);
+    r.push(["1/3 Constitucional — Férias em Dobro", "R$ " + fdBase.toFixed(2) + " ÷ 3", fdTerco]);
   }
 
   // 13o
-  if (res.decimoTerceiro > 0) {
-    const inicio = (adm.y === dem.y) ? adm.m : 1;
-    const m13 = Math.min((dem.m - inicio + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0), 12);
-    addRow("13º Salário Proporcional", "R$ " + sal.toFixed(2) + " ÷ 12 × " + m13 + " meses (inc. projeção aviso)", res.decimoTerceiro);
+  if (val13 > 0) {
+    r.push(["13º Salário Proporcional (" + m13 + " meses / " + dias13 + " dias)", "R$ " + rem13.toFixed(2) + " ÷ 12 × " + m13 + " meses (inc. projeção aviso)", val13]);
   }
 
-  // Férias Proporcionais
-  if (res.feriasProporcionais > 0) {
-    addRow("Férias Proporcionais + 1/3", "Proporcionais desde último aniversário do contrato × 4/3", res.feriasProporcionais);
+  // Outras verbas
+  if (res.horasExtras > 0) r.push(["Horas Extras", "(R$ " + sal.toFixed(2) + " ÷ 220) × " + (1 + (d.horasExtrasPercentual || 50) / 100).toFixed(2) + " × " + (d.horasExtrasMensais || 0) + "h/mês × " + meses + "m", res.horasExtras]);
+  if (res.adicInsalubridade > 0) r.push(["Adicional de Insalubridade", "SM R$ " + SM.toFixed(2) + " × " + ({minimo:"10%",medio:"20%",maximo:"40%"}[d.insalubridadeGrau] || "") + " × " + meses + "m", res.adicInsalubridade]);
+  if (res.adicPericulosidade > 0) r.push(["Adicional de Periculosidade", "R$ " + sal.toFixed(2) + " × 30% × " + meses + "m", res.adicPericulosidade]);
+  if (res.adicNoturno > 0) r.push(["Adicional Noturno", "(R$ " + sal.toFixed(2) + " ÷ 220) × 20% × " + (d.horasNoturnasMensais || 0) + "h/mês × " + meses + "m", res.adicNoturno]);
+  if (res.intervaloIntrajornada > 0) r.push(["Intervalo Intrajornada Suprimido", "(R$ " + sal.toFixed(2) + " ÷ 220) × 1,5 × " + ((d.intervaloSuprimidoMinutos || 0)/60).toFixed(2) + "h/dia × " + (d.diasIntervaloSuprimido || meses*22) + " dias", res.intervaloIntrajornada]);
+  if (res.salarioFamilia > 0) r.push(["Salário-Família", "R$ 65,00 × " + (d.filhosMenores || 0) + " filho(s) × " + meses + "m", res.salarioFamilia]);
+  if (res.gratificacao > 0) r.push(["Gratificação", "R$ " + (d.gratificacaoMensal || 0).toFixed(2) + "/mês × " + meses + "m", res.gratificacao]);
+  if (res.gorjetas > 0) r.push(["Gorjetas", "R$ " + (d.gorjetasMensais || 0).toFixed(2) + "/mês × " + meses + "m", res.gorjetas]);
+  if (res.comissao > 0) r.push(["Comissão", "R$ " + (d.comissaoMensal || 0).toFixed(2) + "/mês × " + meses + "m", res.comissao]);
+  if (res.reflexoDSR > 0) r.push(["Reflexo DSR 6,05%", "6,05% sobre variáveis (HE + gorjetas + comissões + ad. noturno)", res.reflexoDSR]);
+  if (res.plrProporcional > 0) r.push(["PLR Proporcional", "R$ " + (d.plrAnual || 0).toFixed(2) + " ÷ 12 × " + (d.plrMesesTrabalhados || dem.m) + "m", res.plrProporcional]);
+  if (res.estabilidade > 0) r.push(["Indenização por Estabilidade", "R$ " + sal.toFixed(2) + " × " + (d.estabilidadeMesesRestantes || 0) + " meses restantes", res.estabilidade]);
+  if (res.multaArt477 > 0) r.push(["Multa Art. 477 §8º CLT", "1 salário — atraso pagamento rescisório", res.multaArt477]);
+  if (res.multaArt467 > 0) r.push(["Multa Art. 467 CLT", "50% verbas incontroversas", res.multaArt467]);
+  if (res.indenizacaoArt9 > 0) r.push(["Inden. Art. 9º Lei 7.238/84", "1 salário — dispensa 30d antes da data-base", res.indenizacaoArt9]);
+
+  // Subtotal verbas
+  const subtotalVerbas = saldoSal + aviso + fvTotal + fpTotal + fdTotal + val13 +
+    (res.horasExtras || 0) + (res.adicInsalubridade || 0) + (res.adicPericulosidade || 0) +
+    (res.adicNoturno || 0) + (res.intervaloIntrajornada || 0) + (res.salarioFamilia || 0) +
+    (res.gratificacao || 0) + (res.gorjetas || 0) + (res.comissao || 0) + (res.reflexoDSR || 0) +
+    (res.plrProporcional || 0) + (res.estabilidade || 0) + (res.multaArt477 || 0) +
+    (res.multaArt467 || 0) + (res.indenizacaoArt9 || 0);
+
+  r.push(["", "", ""]);
+  r.push(["SUBTOTAL VERBAS RESCISÓRIAS", "", subtotalVerbas]);
+
+  // === ENCARGOS ===
+  r.push(["", "", ""]);
+  r.push(["ENCARGOS", "MEMÓRIA DE CÁLCULO", "VALOR (R$)"]);
+  r.push(["", "", ""]);
+
+  // Contribuicao previdenciaria
+  const percPrev = parseFloat(f.percPrevidencia || 28.8);
+  const basePrevidencia = saldoSal + aviso + val13 +
+    (res.horasExtras || 0) + (res.adicInsalubridade || 0) + (res.adicPericulosidade || 0) +
+    (res.adicNoturno || 0) + (res.comissao || 0) + (res.gorjetas || 0) + (res.gratificacao || 0);
+  const contribPrev = f.calcEncargos ? basePrevidencia * (percPrev / 100) : 0;
+  r.push(["Contribuição Previdenciária Patronal (" + percPrev + "%)", percPrev + "% × base salarial R$ " + basePrevidencia.toFixed(2) + " (saldo sal + aviso + 13º + HE + adicionais + comissões — férias não incidem)", contribPrev]);
+
+  // FGTS
+  r.push(["", "", ""]);
+  r.push(["Saldo FGTS " + (d.saldoFGTS != null ? "(real)" : "(estimado)"), d.saldoFGTS != null ? "Extrato informado" : "R$ " + remFGTS.toFixed(2) + " × 8% × " + meses + " meses", saldoFGTSEstimado]);
+  r.push(["FGTS 8% sobre Verbas Rescisórias (depósito)", "8% × (saldo sal. R$ " + saldoSal.toFixed(2) + " + aviso R$ " + aviso.toFixed(2) + " + 13º R$ " + val13.toFixed(2) + ")", fgtsSobreResc]);
+  r.push(["Saldo FGTS Total (acumulado + rescisório)", "R$ " + saldoFGTSEstimado.toFixed(2) + " + R$ " + fgtsSobreResc.toFixed(2), saldoFGTSTotal]);
+
+  if (multaFGTS > 0) {
+    const pctMulta = ac ? "20%" : "40%";
+    r.push(["Multa " + pctMulta + " FGTS", "R$ " + saldoFGTSTotal.toFixed(2) + " × " + pctMulta, multaFGTS]);
   }
 
-  // Férias Vencidas
-  if (res.feriasVencidas > 0) {
-    const qtd = parseInt(f.feriasVencidasQtd) || 1;
-    addRow("Férias Vencidas + 1/3", "R$ " + sal.toFixed(2) + " × 4/3 × " + qtd + " período(s)", res.feriasVencidas);
-  }
+  // === TOTAL GERAL ===
+  const totalCost = subtotalVerbas + contribPrev + fgtsSobreResc + multaFGTS;
+  r.push(["", "", ""]);
+  r.push(["", "", ""]);
+  r.push(["CUSTO TOTAL DA RESCISÃO", "", totalCost]);
+  r.push(["", "", ""]);
+  r.push(["Gerado por RescisãoCalc — Ferramenta de apoio. Revisão por advogado habilitado indispensável.", "", ""]);
 
-  // Férias em Dobro
-  if (res.feriasEmDobro > 0) {
-    addRow("Férias em Dobro (Art. 137)", "R$ " + sal.toFixed(2) + " × 4/3 × " + (parseInt(f.feriasEmDobroQtd) || 0) + " período(s) — prazo concessivo expirado", res.feriasEmDobro);
-  }
-
-  // Multa FGTS
-  if (res.multaFGTS > 0) {
-    const fgtsResc = (res.saldoSalario + res.avisoIndenizado + res.decimoTerceiro) * 0.08;
-    const pct = ac ? "20%" : "40%";
-    const saldoStr = d.saldoFGTS != null ? "Saldo real R$ " + d.saldoFGTS.toFixed(2) : "Saldo estimado R$ " + (remFGTS * 0.08 * meses).toFixed(2);
-    addRow("Multa " + pct + " FGTS", "(" + saldoStr + " + 8% sobre saldo sal/aviso/13º R$ " + fgtsResc.toFixed(2) + ") × " + pct, res.multaFGTS);
-  }
-
-  // Horas Extras
-  if (res.horasExtras > 0) {
-    addRow("Horas Extras", "R$ " + sal.toFixed(2) + " ÷ 220 × " + (1 + (d.horasExtrasPercentual || 50) / 100).toFixed(2) + " × " + d.horasExtrasMensais + "h/mês × " + meses + "m", res.horasExtras);
-  }
-
-  // Adicionais
-  if (res.adicInsalubridade > 0) addRow("Adicional de Insalubridade", "SM R$ " + SM.toFixed(2) + " × " + ({minimo:"10%",medio:"20%",maximo:"40%"}[d.insalubridadeGrau]) + " × " + meses + "m", res.adicInsalubridade);
-  if (res.adicPericulosidade > 0) addRow("Adicional de Periculosidade", "R$ " + sal.toFixed(2) + " × 30% × " + meses + "m (Art. 193 CLT)", res.adicPericulosidade);
-  if (res.adicNoturno > 0) addRow("Adicional Noturno", "R$ " + sal.toFixed(2) + " ÷ 220 × 20% × " + d.horasNoturnasMensais + "h/mês × " + meses + "m", res.adicNoturno);
-
-  // Intervalo
-  if (res.intervaloIntrajornada > 0) addRow("Intervalo Intrajornada", "R$ " + sal.toFixed(2) + " ÷ 220 × 1,5 × " + (d.intervaloSuprimidoMinutos/60).toFixed(2) + "h/dia × " + (d.diasIntervaloSuprimido || meses*22) + " dias (Art. 71§4º)", res.intervaloIntrajornada);
-
-  // Salário-Família
-  if (res.salarioFamilia > 0) addRow("Salário-Família", "R$ 65,00 × " + d.filhosMenores + " filho(s) × " + meses + "m (Portaria MPS/MF 6/2025)", res.salarioFamilia);
-
-  // Variáveis
-  if (res.gratificacao > 0) addRow("Gratificação", "R$ " + d.gratificacaoMensal.toFixed(2) + "/mês × " + meses + "m", res.gratificacao);
-  if (res.gorjetas > 0) addRow("Gorjetas", "R$ " + d.gorjetasMensais.toFixed(2) + "/mês × " + meses + "m", res.gorjetas);
-  if (res.comissao > 0) addRow("Comissão", "R$ " + d.comissaoMensal.toFixed(2) + "/mês × " + meses + "m", res.comissao);
-
-  // Reflexo DSR
-  if (res.reflexoDSR > 0) addRow("Reflexo DSR 6,05%", "6,05% sobre total de variáveis (HE + gorjetas + comissões + ad. noturno)", res.reflexoDSR);
-
-  // PLR
-  if (res.plrProporcional > 0) addRow("PLR Proporcional", "R$ " + d.plrAnual.toFixed(2) + " ÷ 12 × " + (d.plrMesesTrabalhados || dem.m) + "m", res.plrProporcional);
-
-  // Estabilidade
-  if (res.estabilidade > 0) addRow("Indenização por Estabilidade", "R$ " + sal.toFixed(2) + " × " + d.estabilidadeMesesRestantes + " meses restantes (" + d.estabilidadeTipo + ")", res.estabilidade);
-
-  // Multas
-  if (res.multaArt477 > 0) addRow("Multa Art. 477 §8º CLT", "1 salário por atraso no pagamento rescisório", res.multaArt477);
-  if (res.multaArt467 > 0) addRow("Multa Art. 467 CLT", "50% das verbas incontroversas não pagas na 1ª audiência", res.multaArt467);
-  if (res.indenizacaoArt9 > 0) addRow("Inden. Art. 9º Lei 7.238/84", "1 salário — dispensa nos 30d antes da data-base", res.indenizacaoArt9);
-
-  // Total
-  const total = Object.values(res).reduce((a, b) => a + b, 0);
-  rows.push(["", "", ""]);
-  rows.push(["TOTAL", "", total]);
-  rows.push(["", "", ""]);
-  rows.push(["Gerado por RescisãoCalc — Ferramenta de apoio. Revisão por advogado habilitado indispensável.", "", ""]);
-
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-
-  // Column widths
-  ws["!cols"] = [{ wch: 35 }, { wch: 70 }, { wch: 18 }];
-
+  const ws = XLSX.utils.aoa_to_sheet(r);
+  ws["!cols"] = [{ wch: 48 }, { wch: 85 }, { wch: 20 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Verbas Rescisórias");
   XLSX.writeFile(wb, "rescisao_detalhamento.xlsx");
@@ -437,7 +524,7 @@ function exportXLSX(res, f, dd) {
 
 export default function App() {
   const [step, setStep] = useState(0);
-  const [f, setF] = useState({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa", temVariavel: false, tiposVariavel: [], comissaoMedia12: "", gratAjustadaTotal: "", gratAjustadaPeriod: "", variavelMediaMensal: "" });
+  const [f, setF] = useState({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa", temVariavel: false, tiposVariavel: [], comissaoMedia12: "", gratAjustadaTotal: "", gratAjustadaPeriod: "", variavelMediaMensal: "", percPrevidencia: "28.8", calcEncargos: false });
   const [files, setFiles] = useState([]);
   const [dd, setDD] = useState(null);
   const [editDD, setEditDD] = useState(null);
@@ -486,9 +573,7 @@ export default function App() {
     setStep(2); setMsg("Calculando 22 verbas...");
     await new Promise(r => setTimeout(r, 400));
     const verbas = calc(f, docData);
-    setRes(verbas); setMsg("Gerando análise...");
-    const analysis = await aiAnalysis(verbas, f, !!docData, docData);
-    setAi(analysis); setStep(4);
+    setRes(verbas); setStep(4);
   };
 
   const confirmAndCalc = () => {
@@ -496,7 +581,7 @@ export default function App() {
     setDD(merged); runCalc(merged);
   };
   const updateField = (key, val) => setEditDD(p => ({ ...p, [key]: val }));
-  const reset = () => { setStep(0); setF({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa", temVariavel: false, tiposVariavel: [], comissaoMedia12: "", gratAjustadaTotal: "", gratAjustadaPeriod: "", variavelMediaMensal: "" }); setFiles([]); setDD(null); setEditDD(null); setRes(null); setAi(""); };
+  const reset = () => { setStep(0); setF({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa", temVariavel: false, tiposVariavel: [], comissaoMedia12: "", gratAjustadaTotal: "", gratAjustadaPeriod: "", variavelMediaMensal: "", percPrevidencia: "28.8", calcEncargos: false }); setFiles([]); setDD(null); setEditDD(null); setRes(null); setAi(""); };
 
   const total = res ? Object.values(res).reduce((a, b) => a + b, 0) : 0;
   const pos = res ? Object.entries(res).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]) : [];
@@ -617,6 +702,23 @@ export default function App() {
                 </div>)}
               </div>)}
             </div>
+            <div style={{ marginTop: 16 }}>
+              <div onClick={() => s("calcEncargos", !f.calcEncargos)} style={{ ...S.chk, borderColor: f.calcEncargos ? "#2980b9" : "#cbd5e0", background: f.calcEncargos ? "rgba(41,128,185,.04)" : "#f8fafb" }}>
+                <div style={{ ...S.chkB, borderColor: f.calcEncargos ? "#2980b9" : "#aab4c0", background: f.calcEncargos ? "#2980b9" : "transparent" }}>
+                  {f.calcEncargos && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2d3d" }}>Calcular encargos patronais?</div>
+                  <div style={{ fontSize: 11, color: "#7f8c9b" }}>FGTS depósito rescisório + contribuição previdenciária (consultivo / RH)</div>
+                </div>
+              </div>
+              {f.calcEncargos && (<div style={{ marginTop: 10, padding: "14px", background: "#f8fafb", borderRadius: 9, border: "1px solid #e4eaf0" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
+                  <F label="Contribuição previdenciária patronal (%)" type="number" placeholder="28.8" value={f.percPrevidencia} onChange={v => s("percPrevidencia", v)} />
+                  <div style={{ fontSize: 10, color: "#7f8c9b", paddingBottom: 14 }}>Padrão: 28,8% (INSS 20% + RAT + terceiros).<br/>Incide sobre saldo sal., aviso, 13º, HE, adicionais e comissões.<br/>Férias indenizadas não incidem.</div>
+                </div>
+              </div>)}
+            </div>
             <div style={{ marginTop: 16, padding: "10px 13px", background: "#f8f9fa", borderRadius: 8, border: "1px solid #e2e6ea", fontSize: 11, color: "#6b7b8d", lineHeight: 1.55 }}>
               <strong>Atenção:</strong> Este calculo não contempla pagamentos previstos em acordo ou convenção coletiva de trabalho (ACT/CCT) e não aplica correção monetária sobre o saldo do FGTS.
             </div>
@@ -720,12 +822,6 @@ export default function App() {
               }
               return null;
             })()}
-          </div>
-
-          <div style={{ ...S.card, marginTop: 14 }}>
-            <h2 style={S.ch}>Análise Automática</h2>
-            {!ai ? <div style={{ padding: "14px 0" }}>{[100, 75, 50].map((w, i) => <div key={i} style={{ height: 10, borderRadius: 5, width: w + "%", background: "linear-gradient(90deg,#e8eef3,#d0dae4,#e8eef3)", backgroundSize: "200% 100%", animation: "shimmer 1.3s infinite " + (i * .15) + "s", marginBottom: 7 }} />)}</div>
-              : <div style={{ fontSize: 13, color: "#2a3a4a", lineHeight: 1.7, whiteSpace: "pre-wrap", padding: "11px 14px", background: "#f8fafb", borderRadius: 9, border: "1px solid #e4eaf0" }} dangerouslySetInnerHTML={{ __html: ai.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />}
           </div>
 
           <div style={{ ...S.card, marginTop: 14 }}>
