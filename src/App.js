@@ -259,71 +259,6 @@ function Info({ bg, bc, icon, children }) {
 }
 
 
-const METODOLOGIA = {
-  saldoSalario: "(Sal / 30) x dias trabalhados no mes da rescisao",
-  avisoIndenizado: "(Sal / 30) x (30 + 3/ano, max 90d) - Lei 12.506/2011",
-  decimoTerceiro: "(Sal / 12) x meses no ano da demissao + projecao do aviso",
-  feriasProporcionais: "(Sal / 12) x meses desde ultimo aniversario x 4/3 + aviso",
-  feriasVencidas: "Sal x 4/3 x qtd periodos nao gozados",
-  feriasEmDobro: "Art. 137 CLT: Sal x 4/3 por periodo com concessivo expirado",
-  multaFGTS: "(Saldo FGTS + 8% s/ saldo sal, aviso e 13o) x 40% (ou 20%)",
-  horasExtras: "(Sal / 220) x (1 + %) x media mensal x meses",
-  adicInsalubridade: "SM x grau (10/20/40%) x meses - Art. 192 CLT",
-  adicPericulosidade: "Sal x 30% x meses - Art. 193 CLT",
-  adicNoturno: "(Sal / 220) x 20% x h noturnas/mes x meses - Art. 73 CLT",
-  intervaloIntrajornada: "(Sal / 220) x 1,5 x h suprimidas/dia x dias - Art. 71",
-  salarioFamilia: "R$65/filho ate 14a (sal ate R$1.906,04) x meses",
-  gratificacao: "Media mensal x meses",
-  gorjetas: "Media mensal x meses",
-  comissao: "Media mensal x meses",
-  reflexoDSR: "6,05% sobre variaveis (HE+gorjetas+comissoes+ad.noturno)",
-  plrProporcional: "PLR anual / 12 x meses no periodo",
-  estabilidade: "Sal x meses restantes (gestante/CIPA/acidentado)",
-  multaArt467: "50% verbas incontroversas - Art. 467 CLT",
-  multaArt477: "1 salario se atraso - Art. 477 CLT",
-  indenizacaoArt9: "1 salario se dispensa 30d antes data-base - Lei 7.238/84",
-};
-
-async function exportExcel(res, f, dd) {
-  if (!window.XLSX) {
-    await new Promise(r => {
-      const sc = document.createElement("script");
-      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-      sc.onload = r; sc.onerror = r; document.head.appendChild(sc);
-    });
-  }
-  const X = window.XLSX;
-  if (!X) return;
-  const rows = [
-    ["RESCISAOCALC - DEMONSTRATIVO DE VERBAS RESCISORIAS"],
-    [],
-    ["DADOS DO CONTRATO"],
-    ["Admissao", f.dataAdmissao],
-    ["Demissao", f.dataDemissao],
-    ["Salario (R$)", parseFloat(f.salario)],
-    ["Tipo de Rescisao", TIPOS[f.tipoRescisao]],
-    ["Tempo de Servico (meses)", mB(f.dataAdmissao, f.dataDemissao)],
-    ["Dados extraidos por IA", dd ? "Sim (validados)" : "Nao"],
-    [],
-    ["VERBA", "FORMULA / BASE LEGAL", "VALOR (R$)"],
-  ];
-  const allEntries = Object.entries(res).sort((a, b) => b[1] - a[1]);
-  for (const [k, v] of allEntries) {
-    rows.push([V[k]?.l || k, METODOLOGIA[k] || "", Math.round(v * 100) / 100]);
-  }
-  const total = Object.values(res).reduce((a, b) => a + b, 0);
-  rows.push([]);
-  rows.push(["TOTAL", "", Math.round(total * 100) / 100]);
-  rows.push([]);
-  rows.push(["Ferramenta de apoio - revisao por advogado habilitado indispensavel."]);
-  const ws = X.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{ wch: 35 }, { wch: 60 }, { wch: 16 }];
-  const wb = X.utils.book_new();
-  X.utils.book_append_sheet(wb, ws, "Rescisao");
-  X.writeFile(wb, "rescisao-" + f.dataDemissao + ".xlsx");
-}
-
-
 async function exportXLSX(res, f, dd) {
   if (!window.ExcelJS) {
     await new Promise((resolve, reject) => {
@@ -906,9 +841,8 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "center", marginTop: 18, gap: 10 }}>
-            <button className="btn" style={{ background: "linear-gradient(135deg,#0d5f2c,#1a8c4e)", color: "#fff" }} onClick={() => exportExcel(res, f, dd)}>📥 Exportar Excel</button>
+            <button className="btn" style={{ background: "linear-gradient(135deg,#1a6b3a,#27ae60)", color: "#fff" }} onClick={() => exportXLSX(res, f, dd)}>📊 Exportar Excel</button>
             <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={reset}>🔄 Novo Cálculo</button>
-              <button className="btn" style={{ background: "linear-gradient(135deg,#1a6b3a,#27ae60)", color: "#fff" }} onClick={() => exportXLSX(res, f, dd)}>📊 Exportar Excel</button>
           </div>
         </div>)}
 
