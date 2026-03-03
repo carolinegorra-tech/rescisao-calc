@@ -703,12 +703,29 @@ export default function App() {
               {dd && <span style={{ ...S.tl, background: "rgba(111,207,151,.2)", color: "#a8f0c8" }}>Dados validados</span>}
               {!dd && <span style={{ ...S.tl, background: "rgba(255,200,50,.2)", color: "#ffd54f" }}>Estimativa</span>}
             </div>
+            {(() => {
+              const varT = f.tiposVariavel || [];
+              const temC = varT.includes("comissao") || varT.includes("grat_mensal");
+              const temG = varT.includes("grat_ajustada");
+              let mv = 0, label = "";
+              if (temC) { mv += parseFloat(f.comissaoMedia12 || 0); label = "Grat./Comissão mensal"; }
+              if (temG) { mv += parseFloat(f.gratAjustadaTotal || 0) / 12; label = temC ? label + " + Grat. ajustada" : "Grat. ajustada"; }
+              if (mv > 0) {
+                const sal = parseFloat(f.salario) || 0;
+                const rem = sal + mv;
+                const impacto = (temC || (temG && f.gratAjustadaPeriod === "semestral")) ? "aviso, 13º, férias, FGTS" : "apenas 13º";
+                return <div style={{ marginTop: 8, padding: "8px 14px", background: "rgba(255,255,255,.08)", borderRadius: 8, fontSize: 12, color: "rgba(255,255,255,.85)", lineHeight: 1.5 }}>
+                  <strong style={{ color: "#ffd54f" }}>Remuneração:</strong> Sal. R$ {fmt(sal)} + {label} R$ {fmt(mv)}/mês = <strong>R$ {fmt(rem)}</strong> <span style={{ opacity: .7 }}>→ impacta {impacto}</span>
+                </div>;
+              }
+              return null;
+            })()}
           </div>
 
           <div style={{ ...S.card, marginTop: 14 }}>
             <h2 style={S.ch}>Análise Automática</h2>
             {!ai ? <div style={{ padding: "14px 0" }}>{[100, 75, 50].map((w, i) => <div key={i} style={{ height: 10, borderRadius: 5, width: w + "%", background: "linear-gradient(90deg,#e8eef3,#d0dae4,#e8eef3)", backgroundSize: "200% 100%", animation: "shimmer 1.3s infinite " + (i * .15) + "s", marginBottom: 7 }} />)}</div>
-              : <div style={{ fontSize: 13, color: "#2a3a4a", lineHeight: 1.7, whiteSpace: "pre-wrap", padding: "11px 14px", background: "#f8fafb", borderRadius: 9, border: "1px solid #e4eaf0" }}>{ai}</div>}
+              : <div style={{ fontSize: 13, color: "#2a3a4a", lineHeight: 1.7, whiteSpace: "pre-wrap", padding: "11px 14px", background: "#f8fafb", borderRadius: 9, border: "1px solid #e4eaf0" }} dangerouslySetInnerHTML={{ __html: ai.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />}
           </div>
 
           <div style={{ ...S.card, marginTop: 14 }}>
