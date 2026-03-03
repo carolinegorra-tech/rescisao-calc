@@ -324,15 +324,30 @@ async function exportExcel(res, f, dd) {
 }
 
 
-function exportXLSX(res, f, dd) {
-  const XLSX = window.XLSX;
-  if (!XLSX) {
-    const sc = document.createElement("script");
-    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-    sc.onload = () => exportXLSX(res, f, dd);
-    document.head.appendChild(sc);
-    return;
+async function exportXLSX(res, f, dd) {
+  if (!window.ExcelJS) {
+    await new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+      sc.onload = resolve; sc.onerror = reject;
+      document.head.appendChild(sc);
+    });
   }
+  const EJ = window.ExcelJS;
+  const wb = new EJ.Workbook();
+  const ws = wb.addWorksheet("Rescisão", { properties: { tabColor: { argb: "1A3D5C" } } });
+
+  ws.columns = [{ width: 44 }, { width: 74 }, { width: 22 }];
+
+  const NAVY = "1A3D5C", BLUE = "2980B9", LBLUE = "D6EAF8", VLBLUE = "EBF5FB";
+  const GREEN = "1E8449", LGREEN = "D5F5E3", VLGREEN = "EAFAF1";
+  const ORANGE = "E67E22", LORANGE = "FDEBD0", VLORANGE = "FEF5E7";
+  const GRAY = "F2F3F4", WHITE = "FFFFFF", DGRAY = "34495E";
+  const thinB = { style: "thin", color: { argb: "D5D8DC" } };
+  const thickB = { style: "medium", color: { argb: "1A3D5C" } };
+
+  const fillC = c => ({ type: "pattern", pattern: "solid", fgColor: { argb: c } });
+  const fontA = (sz, b, c, i) => ({ name: "Arial", size: sz, bold: !!b, color: { argb: c || "2C3E50" }, italic: !!i });
 
   const sal = parseFloat(f.salario) || 0;
   const meses = mB(f.dataAdmissao, f.dataDemissao);
@@ -341,186 +356,199 @@ function exportXLSX(res, f, dd) {
   const dav = avD(meses);
   const d = dd || {};
   const t = f.tipoRescisao;
-  const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo", jc = t === "justa_causa";
+  const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo";
 
-  // Remuneracao
   const varTipos = (d.tiposVariavel) || [];
   const temComissao = varTipos.includes("comissao") || varTipos.includes("grat_mensal");
   const temGratAjust = varTipos.includes("grat_ajustada");
-  const gratSemestral = d.gratAjustadaPeriod === "semestral";
+  const gratSem = d.gratAjustadaPeriod === "semestral";
   let mediaVar = 0;
   if (temComissao) mediaVar += parseFloat(d.comissaoMedia12 || 0);
   if (temGratAjust) mediaVar += parseFloat(d.gratAjustadaTotal || 0) / 12;
   const remVal = sal + mediaVar;
-  const remFerias = (temComissao || gratSemestral) ? remVal : sal;
+  const remF = (temComissao || gratSem) ? remVal : sal;
   const rem13 = (mediaVar > 0) ? remVal : sal;
   const remFGTS = (mediaVar > 0) ? remVal : sal;
 
-  // Calc components
-  const saldoSal = res.saldoSalario || 0;
-  const aviso = res.avisoIndenizado || 0;
-
-  // 13o
   const inicio13 = (adm.y === dem.y) ? adm.m : 1;
-  let m13 = (dem.m - inicio13 + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0);
-  m13 = Math.max(0, Math.min(m13, 12));
-  const dias13 = Math.round(m13 * 30);
-  const val13 = res.decimoTerceiro || 0;
-
-  // Ferias vencidas
-  const qtdFV = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
-  const fvBase = qtdFV > 0 ? remFerias * qtdFV : 0;
-  const fvTerco = fvBase / 3;
-  const fvTotal = fvBase + fvTerco;
-
-  // Ferias proporcionais
+  let m13 = Math.max(0, Math.min((dem.m - inicio13 + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0), 12));
   let anivAno = dem.y;
   if (dem.m < adm.m || (dem.m === adm.m && dem.d < adm.d)) anivAno--;
   let mfp = dem.m - adm.m;
-  if (anivAno < dem.y) mfp = (dem.y - anivAno) * 12 + (dem.m - adm.m);
   if (dem.m < adm.m) mfp = dem.m + 12 - adm.m;
   if (anivAno === dem.y) mfp = dem.m - adm.m;
   if (mfp < 0) mfp += 12;
-  mfp += ((sjc || ac) ? Math.floor(dav / 30) : 0);
-  mfp = Math.max(0, Math.min(mfp, 12));
-  const fpBase = jc ? 0 : (remFerias / 12) * mfp;
-  const fpTerco = fpBase / 3;
-  const fpTotal = fpBase + fpTerco;
+  mfp = Math.max(0, Math.min(mfp + ((sjc || ac) ? Math.floor(dav / 30) : 0), 12));
 
-  // Ferias em dobro
-  const qtdDobro = parseInt(f.feriasEmDobroQtd) || 0;
-  const fdBase = remFerias * qtdDobro;
-  const fdTerco = fdBase / 3;
-  const fdTotal = fdBase + fdTerco;
+  const qtdFV = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
+  const fvBase = qtdFV > 0 ? remF * qtdFV : 0, fvT = fvBase / 3;
+  const qtdD = parseInt(f.feriasEmDobroQtd) || 0;
+  const fdBase = remF * qtdD, fdT = fdBase / 3;
+  const fpBase = (res.feriasProporcionais || 0) > 0 ? (remF / 12) * mfp : 0, fpT = fpBase / 3;
 
-  // FGTS
-  const fgtsSobreResc = (saldoSal + aviso + val13) * 0.08;
-  const saldoFGTSEstimado = d.saldoFGTS != null ? d.saldoFGTS : (remFGTS * 0.08 * meses);
-  const saldoFGTSTotal = saldoFGTSEstimado + fgtsSobreResc;
-  const multaFGTS = sjc ? saldoFGTSTotal * 0.40 : ac ? saldoFGTSTotal * 0.20 : 0;
+  const sS = res.saldoSalario || 0, av = res.avisoIndenizado || 0, v13 = res.decimoTerceiro || 0;
+  const fgtsR = (sS + av + v13) * 0.08;
+  const saldoFE = d.saldoFGTS != null ? d.saldoFGTS : (remFGTS * 0.08 * meses);
+  const saldoFT = saldoFE + fgtsR;
+  const mFGTS = res.multaFGTS || 0;
 
-  const r = [
-    ["RESCISÃOCALC — DETALHAMENTO DE VERBAS RESCISÓRIAS", "", ""],
-    ["", "", ""],
-    ["DADOS DO CONTRATO", "", ""],
-    ["Data de Admissão", f.dataAdmissao, ""],
-    ["Data de Demissão", f.dataDemissao, ""],
-    ["Salário Base (R$)", "", sal],
+  const nr = v => "R$ " + v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  // === TITLE ===
+  const titleRow = ws.addRow(["RESCISÃOCALC — DETALHAMENTO DE VERBAS RESCISÓRIAS"]);
+  ws.mergeCells(titleRow.number, 1, titleRow.number, 3);
+  titleRow.height = 42;
+  titleRow.eachCell(c => { c.font = fontA(14, true, WHITE); c.fill = fillC(NAVY); c.alignment = { horizontal: "center", vertical: "middle" }; });
+
+  ws.addRow([]).height = 6;
+
+  // === CONTRACT DATA ===
+  const secC = ws.addRow(["DADOS DO CONTRATO"]);
+  ws.mergeCells(secC.number, 1, secC.number, 3);
+  secC.height = 28;
+  secC.eachCell(c => { c.font = fontA(11, true, WHITE); c.fill = fillC(DGRAY); c.alignment = { horizontal: "center", vertical: "middle" }; });
+
+  const cData = [
+    ["Admissão: " + f.dataAdmissao, "Demissão: " + f.dataDemissao, ""],
+    ["Salário Base: " + nr(sal), "Tempo: " + meses + " meses", "Aviso: " + dav + " dias"],
+    ["Tipo: " + TIPOS[t], "", ""],
   ];
   if (mediaVar > 0) {
-    r.push(["Variável Mensal — média 12m (R$)", "", mediaVar]);
-    r.push(["Remuneração = Sal + Variável (R$)", "", remVal]);
-    const imp = (temComissao || gratSemestral) ? "aviso, 13º, férias, FGTS" : "apenas 13º";
-    r.push(["Impacto da variável", imp, ""]);
+    cData.push(["Variável: " + nr(mediaVar) + "/mês", "Remuneração: " + nr(remVal), "Impacta: " + ((temComissao || gratSem) ? "tudo" : "13º")]);
   }
-  r.push(["Tipo de Rescisão", TIPOS[t], ""]);
-  r.push(["Tempo de Serviço (meses)", "", meses]);
-  r.push(["Dias de Aviso Prévio", "", dav]);
-  r.push(["", "", ""]);
+  cData.forEach((r, i) => {
+    const row = ws.addRow(r);
+    row.height = 22;
+    row.eachCell(c => { c.font = fontA(10, false, "2C3E50"); c.fill = fillC(i % 2 === 0 ? GRAY : WHITE); c.alignment = { vertical: "middle" }; });
+  });
 
-  // === VERBAS RESCISORIAS ===
-  r.push(["VERBAS RESCISÓRIAS", "MEMÓRIA DE CÁLCULO", "VALOR (R$)"]);
-  r.push(["", "", ""]);
+  ws.addRow([]).height = 8;
 
-  // Saldo de salario
-  r.push(["Saldo de Salário", "R$ " + sal.toFixed(2) + " ÷ 30 × " + dem.d + " dias", saldoSal]);
+  // === HELPER: Section header ===
+  const secHead = (title, color) => {
+    const r = ws.addRow([title]);
+    ws.mergeCells(r.number, 1, r.number, 3);
+    r.height = 30;
+    r.eachCell(c => { c.font = fontA(11, true, WHITE); c.fill = fillC(color); c.alignment = { horizontal: "center", vertical: "middle" }; });
+  };
 
-  // Aviso previo
-  if (aviso > 0) {
-    const baseAv = remFerias;
-    const pctAv = ac ? " × 50%" : "";
-    r.push(["Aviso Prévio Indenizado (" + dav + " dias)", "R$ " + baseAv.toFixed(2) + " ÷ 30 × " + dav + " dias" + pctAv, aviso]);
-  }
+  const colHead = (color) => {
+    const r = ws.addRow(["Verba", "Memória de Cálculo", "Valor (R$)"]);
+    r.height = 22;
+    r.eachCell((c, i) => { c.font = fontA(9, true, color); c.fill = fillC(color === BLUE ? LBLUE : color === GREEN ? LGREEN : LORANGE); c.alignment = { horizontal: i === 3 ? "right" : "left", vertical: "middle" }; c.border = { bottom: { style: "medium", color: { argb: color } } }; });
+  };
 
-  // Ferias vencidas (separado base + 1/3)
-  if (fvTotal > 0) {
-    r.push(["Férias Vencidas (" + qtdFV + " período" + (qtdFV > 1 ? "s" : "") + ")", "R$ " + remFerias.toFixed(2) + " × " + qtdFV, fvBase]);
-    r.push(["1/3 Constitucional — Férias Vencidas", "R$ " + fvBase.toFixed(2) + " ÷ 3", fvTerco]);
-  }
+  const dataRow = (name, memo, val, altBg1, altBg2, idx, isTerco, boldVal, valColor) => {
+    const r = ws.addRow([name, memo, val]);
+    r.height = 24;
+    const bg = idx % 2 === 0 ? altBg1 : WHITE;
+    r.getCell(1).font = isTerco ? fontA(9, false, "5D6D7E", true) : fontA(10, false);
+    r.getCell(1).fill = fillC(bg);
+    r.getCell(1).alignment = { vertical: "middle" };
+    r.getCell(1).border = { bottom: thinB };
+    r.getCell(2).font = fontA(9, false, "5D6D7E");
+    r.getCell(2).fill = fillC(bg);
+    r.getCell(2).alignment = { vertical: "middle", wrapText: true };
+    r.getCell(2).border = { bottom: thinB };
+    r.getCell(3).font = fontA(isTerco ? 9 : 10, !!boldVal, valColor || "2C3E50", isTerco);
+    r.getCell(3).fill = fillC(bg);
+    r.getCell(3).alignment = { horizontal: "right", vertical: "middle" };
+    r.getCell(3).numFmt = "#,##0.00";
+    r.getCell(3).border = { bottom: thinB };
+  };
 
-  // Ferias proporcionais (separado base + 1/3)
-  if (fpTotal > 0) {
-    r.push(["Férias Proporcionais (" + mfp + " meses)", "R$ " + remFerias.toFixed(2) + " ÷ 12 × " + mfp + " meses", fpBase]);
-    r.push(["1/3 Constitucional — Férias Proporcionais", "R$ " + fpBase.toFixed(2) + " ÷ 3", fpTerco]);
-  }
+  const subtotalRow = (label, val, color) => {
+    const r = ws.addRow([label, "", val]);
+    ws.mergeCells(r.number, 1, r.number, 2);
+    r.height = 28;
+    r.getCell(1).font = fontA(11, true, color);
+    r.getCell(1).fill = fillC(color === BLUE ? LBLUE : color === GREEN ? LGREEN : LORANGE);
+    r.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
+    r.getCell(1).border = { bottom: { style: "medium", color: { argb: color } } };
+    r.getCell(3).font = fontA(11, true, color);
+    r.getCell(3).fill = fillC(color === BLUE ? LBLUE : color === GREEN ? LGREEN : LORANGE);
+    r.getCell(3).alignment = { horizontal: "right", vertical: "middle" };
+    r.getCell(3).numFmt = "#,##0.00";
+    r.getCell(3).border = { bottom: { style: "medium", color: { argb: color } } };
+  };
 
-  // Ferias em dobro (separado base + 1/3)
-  if (fdTotal > 0) {
-    r.push(["Férias em Dobro — Art. 137 (" + qtdDobro + " período" + (qtdDobro > 1 ? "s" : "") + ")", "R$ " + remFerias.toFixed(2) + " × " + qtdDobro + " (prazo concessivo expirado)", fdBase]);
-    r.push(["1/3 Constitucional — Férias em Dobro", "R$ " + fdBase.toFixed(2) + " ÷ 3", fdTerco]);
-  }
+  // === VERBAS RESCISÓRIAS ===
+  secHead("VERBAS RESCISÓRIAS", BLUE);
+  colHead(BLUE);
 
-  // 13o
-  if (val13 > 0) {
-    r.push(["13º Salário Proporcional (" + m13 + " meses / " + dias13 + " dias)", "R$ " + rem13.toFixed(2) + " ÷ 12 × " + m13 + " meses (inc. projeção aviso)", val13]);
-  }
+  let sub = 0, vi = 0;
+  const addV = (n, m, v, terco) => { if (v > 0.005) { dataRow(n, m, v, VLBLUE, WHITE, vi++, !!terco); sub += v; } };
 
-  // Outras verbas
-  if (res.horasExtras > 0) r.push(["Horas Extras", "(R$ " + sal.toFixed(2) + " ÷ 220) × " + (1 + (d.horasExtrasPercentual || 50) / 100).toFixed(2) + " × " + (d.horasExtrasMensais || 0) + "h/mês × " + meses + "m", res.horasExtras]);
-  if (res.adicInsalubridade > 0) r.push(["Adicional de Insalubridade", "SM R$ " + SM.toFixed(2) + " × " + ({minimo:"10%",medio:"20%",maximo:"40%"}[d.insalubridadeGrau] || "") + " × " + meses + "m", res.adicInsalubridade]);
-  if (res.adicPericulosidade > 0) r.push(["Adicional de Periculosidade", "R$ " + sal.toFixed(2) + " × 30% × " + meses + "m", res.adicPericulosidade]);
-  if (res.adicNoturno > 0) r.push(["Adicional Noturno", "(R$ " + sal.toFixed(2) + " ÷ 220) × 20% × " + (d.horasNoturnasMensais || 0) + "h/mês × " + meses + "m", res.adicNoturno]);
-  if (res.intervaloIntrajornada > 0) r.push(["Intervalo Intrajornada Suprimido", "(R$ " + sal.toFixed(2) + " ÷ 220) × 1,5 × " + ((d.intervaloSuprimidoMinutos || 0)/60).toFixed(2) + "h/dia × " + (d.diasIntervaloSuprimido || meses*22) + " dias", res.intervaloIntrajornada]);
-  if (res.salarioFamilia > 0) r.push(["Salário-Família", "R$ 65,00 × " + (d.filhosMenores || 0) + " filho(s) × " + meses + "m", res.salarioFamilia]);
-  if (res.gratificacao > 0) r.push(["Gratificação", "R$ " + (d.gratificacaoMensal || 0).toFixed(2) + "/mês × " + meses + "m", res.gratificacao]);
-  if (res.gorjetas > 0) r.push(["Gorjetas", "R$ " + (d.gorjetasMensais || 0).toFixed(2) + "/mês × " + meses + "m", res.gorjetas]);
-  if (res.comissao > 0) r.push(["Comissão", "R$ " + (d.comissaoMensal || 0).toFixed(2) + "/mês × " + meses + "m", res.comissao]);
-  if (res.reflexoDSR > 0) r.push(["Reflexo DSR 6,05%", "6,05% sobre variáveis (HE + gorjetas + comissões + ad. noturno)", res.reflexoDSR]);
-  if (res.plrProporcional > 0) r.push(["PLR Proporcional", "R$ " + (d.plrAnual || 0).toFixed(2) + " ÷ 12 × " + (d.plrMesesTrabalhados || dem.m) + "m", res.plrProporcional]);
-  if (res.estabilidade > 0) r.push(["Indenização por Estabilidade", "R$ " + sal.toFixed(2) + " × " + (d.estabilidadeMesesRestantes || 0) + " meses restantes", res.estabilidade]);
-  if (res.multaArt477 > 0) r.push(["Multa Art. 477 §8º CLT", "1 salário — atraso pagamento rescisório", res.multaArt477]);
-  if (res.multaArt467 > 0) r.push(["Multa Art. 467 CLT", "50% verbas incontroversas", res.multaArt467]);
-  if (res.indenizacaoArt9 > 0) r.push(["Inden. Art. 9º Lei 7.238/84", "1 salário — dispensa 30d antes da data-base", res.indenizacaoArt9]);
+  addV("Saldo de Salário (" + dem.d + " dias)", nr(sal) + " ÷ 30 × " + dem.d + " dias", sS);
+  if (av > 0) addV("Aviso Prévio Indenizado (" + dav + " dias)", nr(remF) + " ÷ 30 × " + dav + " dias" + (ac ? " × 50%" : "") + " — Lei 12.506", av);
+  if (fvBase > 0) { addV("Férias Vencidas (" + qtdFV + " per.)", nr(remF) + " × " + qtdFV, fvBase); addV("   1/3 Constitucional — Férias Vencidas", nr(fvBase) + " ÷ 3", fvT, true); }
+  if (fpBase > 0) { addV("Férias Proporcionais (" + mfp + " meses)", nr(remF) + " ÷ 12 × " + mfp, fpBase); addV("   1/3 Constitucional — Férias Proporcionais", nr(fpBase) + " ÷ 3", fpT, true); }
+  if (fdBase > 0) { addV("Férias em Dobro — Art. 137 (" + qtdD + " per.)", nr(remF) + " × " + qtdD + " — concessivo expirado", fdBase); addV("   1/3 Constitucional — Férias em Dobro", nr(fdBase) + " ÷ 3", fdT, true); }
+  if (v13 > 0) addV("13º Salário Proporcional (" + m13 + " meses)", nr(rem13) + " ÷ 12 × " + m13 + " (inc. projeção aviso)", v13);
+  if (res.horasExtras > 0) addV("Horas Extras", "(" + nr(sal) + " ÷ 220) × " + (1 + (d.horasExtrasPercentual || 50) / 100).toFixed(2) + " × " + (d.horasExtrasMensais||0) + "h × " + meses + "m", res.horasExtras);
+  if (res.adicInsalubridade > 0) addV("Ad. Insalubridade", "SM " + nr(SM) + " × " + ({minimo:"10%",medio:"20%",maximo:"40%"}[d.insalubridadeGrau]||"?") + " × " + meses + "m", res.adicInsalubridade);
+  if (res.adicPericulosidade > 0) addV("Ad. Periculosidade", nr(sal) + " × 30% × " + meses + "m", res.adicPericulosidade);
+  if (res.adicNoturno > 0) addV("Ad. Noturno", "(" + nr(sal) + " ÷ 220) × 20% × " + (d.horasNoturnasMensais||0) + "h × " + meses + "m", res.adicNoturno);
+  if (res.reflexoDSR > 0) addV("Reflexo DSR 6,05%", "6,05% sobre variáveis", res.reflexoDSR);
+  if (res.multaArt477 > 0) addV("Multa Art. 477 §8º CLT", "1 salário — atraso", res.multaArt477);
+  if (res.multaArt467 > 0) addV("Multa Art. 467 CLT", "50% incontroversas", res.multaArt467);
+  if (res.indenizacaoArt9 > 0) addV("Inden. Art. 9º Lei 7.238/84", "1 salário — 30d data-base", res.indenizacaoArt9);
 
-  // Subtotal verbas
-  const subtotalVerbas = saldoSal + aviso + fvTotal + fpTotal + fdTotal + val13 +
-    (res.horasExtras || 0) + (res.adicInsalubridade || 0) + (res.adicPericulosidade || 0) +
-    (res.adicNoturno || 0) + (res.intervaloIntrajornada || 0) + (res.salarioFamilia || 0) +
-    (res.gratificacao || 0) + (res.gorjetas || 0) + (res.comissao || 0) + (res.reflexoDSR || 0) +
-    (res.plrProporcional || 0) + (res.estabilidade || 0) + (res.multaArt477 || 0) +
-    (res.multaArt467 || 0) + (res.indenizacaoArt9 || 0);
+  subtotalRow("SUBTOTAL VERBAS RESCISÓRIAS", sub, BLUE);
+  ws.addRow([]).height = 8;
 
-  r.push(["", "", ""]);
-  r.push(["SUBTOTAL VERBAS RESCISÓRIAS", "", subtotalVerbas]);
+  // === FGTS ===
+  secHead("FGTS", GREEN);
+  colHead(GREEN);
+  let gi = 0;
+  dataRow("Saldo FGTS " + (d.saldoFGTS != null ? "(informado)" : "(estimado)"), d.saldoFGTS != null ? "Extrato" : nr(remFGTS) + " × 8% × " + meses + "m", saldoFE, VLGREEN, WHITE, gi++);
+  dataRow("FGTS 8% sobre Rescisórias (depósito)", "8% × (sal " + nr(sS) + " + aviso " + nr(av) + " + 13º " + nr(v13) + ")", fgtsR, VLGREEN, WHITE, gi++);
+  dataRow("Saldo FGTS Total", nr(saldoFE) + " + " + nr(fgtsR), saldoFT, VLGREEN, WHITE, gi++, false, true, GREEN);
+  if (mFGTS > 0) dataRow("Multa " + (ac ? "20%" : "40%") + " FGTS", nr(saldoFT) + " × " + (ac ? "20%" : "40%"), mFGTS, VLGREEN, WHITE, gi++, false, true, GREEN);
+  ws.addRow([]).height = 8;
 
   // === ENCARGOS ===
-  r.push(["", "", ""]);
-  r.push(["ENCARGOS", "MEMÓRIA DE CÁLCULO", "VALOR (R$)"]);
-  r.push(["", "", ""]);
-
-  // Contribuicao previdenciaria
-  const percPrev = parseFloat(f.percPrevidencia || 28.8);
-  const basePrevidencia = saldoSal + aviso + val13 +
-    (res.horasExtras || 0) + (res.adicInsalubridade || 0) + (res.adicPericulosidade || 0) +
-    (res.adicNoturno || 0) + (res.comissao || 0) + (res.gorjetas || 0) + (res.gratificacao || 0);
-  const contribPrev = f.calcEncargos ? basePrevidencia * (percPrev / 100) : 0;
-  r.push(["Contribuição Previdenciária Patronal (" + percPrev + "%)", percPrev + "% × base salarial R$ " + basePrevidencia.toFixed(2) + " (saldo sal + aviso + 13º + HE + adicionais + comissões — férias não incidem)", contribPrev]);
-
-  // FGTS
-  r.push(["", "", ""]);
-  r.push(["Saldo FGTS " + (d.saldoFGTS != null ? "(real)" : "(estimado)"), d.saldoFGTS != null ? "Extrato informado" : "R$ " + remFGTS.toFixed(2) + " × 8% × " + meses + " meses", saldoFGTSEstimado]);
-  r.push(["FGTS 8% sobre Verbas Rescisórias (depósito)", "8% × (saldo sal. R$ " + saldoSal.toFixed(2) + " + aviso R$ " + aviso.toFixed(2) + " + 13º R$ " + val13.toFixed(2) + ")", fgtsSobreResc]);
-  r.push(["Saldo FGTS Total (acumulado + rescisório)", "R$ " + saldoFGTSEstimado.toFixed(2) + " + R$ " + fgtsSobreResc.toFixed(2), saldoFGTSTotal]);
-
-  if (multaFGTS > 0) {
-    const pctMulta = ac ? "20%" : "40%";
-    r.push(["Multa " + pctMulta + " FGTS", "R$ " + saldoFGTSTotal.toFixed(2) + " × " + pctMulta, multaFGTS]);
+  if (f.calcEncargos) {
+    secHead("ENCARGOS PATRONAIS", ORANGE);
+    colHead(ORANGE);
+    const pP = parseFloat(f.percPrevidencia || 28.8);
+    const baseP = sS + av + v13 + (res.horasExtras||0) + (res.adicInsalubridade||0) + (res.adicPericulosidade||0) + (res.adicNoturno||0) + (res.comissao||0) + (res.gorjetas||0) + (res.gratificacao||0);
+    const cP = res.contribPrevidenciaria || 0;
+    dataRow("Contribuição Previdenciária (" + pP + "%)", pP + "% × " + nr(baseP) + " (férias não incidem)", cP, VLORANGE, WHITE, 0);
+    dataRow("FGTS Depósito Rescisório (8%)", "Já computado na seção FGTS", fgtsR, VLORANGE, WHITE, 1);
+    ws.addRow([]).height = 8;
   }
 
-  // === TOTAL GERAL ===
-  const totalCost = subtotalVerbas + contribPrev + fgtsSobreResc + multaFGTS;
-  r.push(["", "", ""]);
-  r.push(["", "", ""]);
-  r.push(["CUSTO TOTAL DA RESCISÃO", "", totalCost]);
-  r.push(["", "", ""]);
-  r.push(["Gerado por RescisãoCalc — Ferramenta de apoio. Revisão por advogado habilitado indispensável.", "", ""]);
+  // === CUSTO TOTAL ===
+  ws.addRow([]).height = 4;
+  const custoTotal = sub + fgtsR + mFGTS + (f.calcEncargos ? (res.contribPrevidenciaria || 0) : 0);
+  const tRow = ws.addRow(["CUSTO TOTAL DA RESCISÃO", "", custoTotal]);
+  ws.mergeCells(tRow.number, 1, tRow.number, 2);
+  tRow.height = 42;
+  tRow.getCell(1).font = fontA(13, true, WHITE);
+  tRow.getCell(1).fill = fillC(NAVY);
+  tRow.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
+  tRow.getCell(3).font = fontA(13, true, WHITE);
+  tRow.getCell(3).fill = fillC(NAVY);
+  tRow.getCell(3).alignment = { horizontal: "right", vertical: "middle" };
+  tRow.getCell(3).numFmt = "#,##0.00";
 
-  const ws = XLSX.utils.aoa_to_sheet(r);
-  ws["!cols"] = [{ wch: 48 }, { wch: 85 }, { wch: 20 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Verbas Rescisórias");
-  XLSX.writeFile(wb, "rescisao_detalhamento.xlsx");
+  ws.addRow([]).height = 8;
+  const f1 = ws.addRow(["Gerado por RescisãoCalc — Ferramenta de apoio"]);
+  f1.getCell(1).font = fontA(8, false, "808080");
+  const f2 = ws.addRow(["Revisão por advogado habilitado indispensável"]);
+  f2.getCell(1).font = fontA(8, false, "808080");
+
+  // Generate and download
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "rescisao_detalhamento.xlsx"; a.click();
+  URL.revokeObjectURL(url);
 }
+
+
 
 export default function App() {
   const [step, setStep] = useState(0);
