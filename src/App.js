@@ -218,6 +218,200 @@ function Info({ bg, bc, icon, children }) {
   </div>;
 }
 
+
+const METODOLOGIA = {
+  saldoSalario: "(Sal / 30) x dias trabalhados no mes da rescisao",
+  avisoIndenizado: "(Sal / 30) x (30 + 3/ano, max 90d) - Lei 12.506/2011",
+  decimoTerceiro: "(Sal / 12) x meses no ano da demissao + projecao do aviso",
+  feriasProporcionais: "(Sal / 12) x meses desde ultimo aniversario x 4/3 + aviso",
+  feriasVencidas: "Sal x 4/3 x qtd periodos nao gozados",
+  feriasEmDobro: "Art. 137 CLT: Sal x 4/3 por periodo com concessivo expirado",
+  multaFGTS: "(Saldo FGTS + 8% s/ saldo sal, aviso e 13o) x 40% (ou 20%)",
+  horasExtras: "(Sal / 220) x (1 + %) x media mensal x meses",
+  adicInsalubridade: "SM x grau (10/20/40%) x meses - Art. 192 CLT",
+  adicPericulosidade: "Sal x 30% x meses - Art. 193 CLT",
+  adicNoturno: "(Sal / 220) x 20% x h noturnas/mes x meses - Art. 73 CLT",
+  intervaloIntrajornada: "(Sal / 220) x 1,5 x h suprimidas/dia x dias - Art. 71",
+  salarioFamilia: "R$65/filho ate 14a (sal ate R$1.906,04) x meses",
+  gratificacao: "Media mensal x meses",
+  gorjetas: "Media mensal x meses",
+  comissao: "Media mensal x meses",
+  reflexoDSR: "6,05% sobre variaveis (HE+gorjetas+comissoes+ad.noturno)",
+  plrProporcional: "PLR anual / 12 x meses no periodo",
+  estabilidade: "Sal x meses restantes (gestante/CIPA/acidentado)",
+  multaArt467: "50% verbas incontroversas - Art. 467 CLT",
+  multaArt477: "1 salario se atraso - Art. 477 CLT",
+  indenizacaoArt9: "1 salario se dispensa 30d antes data-base - Lei 7.238/84",
+};
+
+async function exportExcel(res, f, dd) {
+  if (!window.XLSX) {
+    await new Promise(r => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      sc.onload = r; sc.onerror = r; document.head.appendChild(sc);
+    });
+  }
+  const X = window.XLSX;
+  if (!X) return;
+  const rows = [
+    ["RESCISAOCALC - DEMONSTRATIVO DE VERBAS RESCISORIAS"],
+    [],
+    ["DADOS DO CONTRATO"],
+    ["Admissao", f.dataAdmissao],
+    ["Demissao", f.dataDemissao],
+    ["Salario (R$)", parseFloat(f.salario)],
+    ["Tipo de Rescisao", TIPOS[f.tipoRescisao]],
+    ["Tempo de Servico (meses)", mB(f.dataAdmissao, f.dataDemissao)],
+    ["Dados extraidos por IA", dd ? "Sim (validados)" : "Nao"],
+    [],
+    ["VERBA", "FORMULA / BASE LEGAL", "VALOR (R$)"],
+  ];
+  const allEntries = Object.entries(res).sort((a, b) => b[1] - a[1]);
+  for (const [k, v] of allEntries) {
+    rows.push([V[k]?.l || k, METODOLOGIA[k] || "", Math.round(v * 100) / 100]);
+  }
+  const total = Object.values(res).reduce((a, b) => a + b, 0);
+  rows.push([]);
+  rows.push(["TOTAL", "", Math.round(total * 100) / 100]);
+  rows.push([]);
+  rows.push(["Ferramenta de apoio - revisao por advogado habilitado indispensavel."]);
+  const ws = X.utils.aoa_to_sheet(rows);
+  ws["!cols"] = [{ wch: 35 }, { wch: 60 }, { wch: 16 }];
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, "Rescisao");
+  X.writeFile(wb, "rescisao-" + f.dataDemissao + ".xlsx");
+}
+
+
+function exportXLSX(res, f, dd) {
+  const XLSX = window.XLSX;
+  if (!XLSX) {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    sc.onload = () => exportXLSX(res, f, dd);
+    document.head.appendChild(sc);
+    return;
+  }
+
+  const sal = parseFloat(f.salario) || 0;
+  const meses = mB(f.dataAdmissao, f.dataDemissao);
+  const dem = pD(f.dataDemissao);
+  const adm = pD(f.dataAdmissao);
+  const dav = avD(meses);
+  const d = dd || {};
+  const t = f.tipoRescisao;
+  const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo", jc = t === "justa_causa";
+
+  const rows = [
+    ["RESCISÃOCALC — DETALHAMENTO DE VERBAS RESCISÓRIAS", "", ""],
+    ["", "", ""],
+    ["DADOS DO CONTRATO", "", ""],
+    ["Data de Admissão", f.dataAdmissao, ""],
+    ["Data de Demissão", f.dataDemissao, ""],
+    ["Salário Base", fmt(sal), ""],
+    ["Tipo de Rescisão", TIPOS[t], ""],
+    ["Tempo de Serviço (meses)", meses, ""],
+    ["", "", ""],
+    ["VERBA", "MEMÓRIA DE CÁLCULO", "VALOR (R$)"],
+  ];
+
+  const addRow = (name, formula, value) => {
+    rows.push([name, formula, value]);
+  };
+
+  // Saldo de Salário
+  addRow("Saldo de Salário", "R$ " + sal.toFixed(2) + " ÷ 30 × " + dem.d + " dias", res.saldoSalario);
+
+  // Aviso Prévio
+  if (res.avisoIndenizado > 0) {
+    const pct = ac ? " × 50%" : "";
+    addRow("Aviso Prévio Indenizado", "R$ " + sal.toFixed(2) + " ÷ 30 × " + dav + " dias" + pct + " (Lei 12.506/2011)", res.avisoIndenizado);
+  }
+
+  // 13o
+  if (res.decimoTerceiro > 0) {
+    const inicio = (adm.y === dem.y) ? adm.m : 1;
+    const m13 = Math.min((dem.m - inicio + 1) + ((sjc || ac) ? Math.floor(dav / 30) : 0), 12);
+    addRow("13º Salário Proporcional", "R$ " + sal.toFixed(2) + " ÷ 12 × " + m13 + " meses (inc. projeção aviso)", res.decimoTerceiro);
+  }
+
+  // Férias Proporcionais
+  if (res.feriasProporcionais > 0) {
+    addRow("Férias Proporcionais + 1/3", "Proporcionais desde último aniversário do contrato × 4/3", res.feriasProporcionais);
+  }
+
+  // Férias Vencidas
+  if (res.feriasVencidas > 0) {
+    const qtd = parseInt(f.feriasVencidasQtd) || 1;
+    addRow("Férias Vencidas + 1/3", "R$ " + sal.toFixed(2) + " × 4/3 × " + qtd + " período(s)", res.feriasVencidas);
+  }
+
+  // Férias em Dobro
+  if (res.feriasEmDobro > 0) {
+    addRow("Férias em Dobro (Art. 137)", "R$ " + sal.toFixed(2) + " × 4/3 × " + (parseInt(f.feriasEmDobroQtd) || 0) + " período(s) — prazo concessivo expirado", res.feriasEmDobro);
+  }
+
+  // Multa FGTS
+  if (res.multaFGTS > 0) {
+    const fgtsResc = (res.saldoSalario + res.avisoIndenizado + res.decimoTerceiro) * 0.08;
+    const pct = ac ? "20%" : "40%";
+    const saldoStr = d.saldoFGTS != null ? "Saldo real R$ " + d.saldoFGTS.toFixed(2) : "Saldo estimado R$ " + (sal * 0.08 * meses).toFixed(2);
+    addRow("Multa " + pct + " FGTS", "(" + saldoStr + " + 8% sobre saldo sal/aviso/13º R$ " + fgtsResc.toFixed(2) + ") × " + pct, res.multaFGTS);
+  }
+
+  // Horas Extras
+  if (res.horasExtras > 0) {
+    addRow("Horas Extras", "R$ " + sal.toFixed(2) + " ÷ 220 × " + (1 + (d.horasExtrasPercentual || 50) / 100).toFixed(2) + " × " + d.horasExtrasMensais + "h/mês × " + meses + "m", res.horasExtras);
+  }
+
+  // Adicionais
+  if (res.adicInsalubridade > 0) addRow("Adicional de Insalubridade", "SM R$ " + SM.toFixed(2) + " × " + ({minimo:"10%",medio:"20%",maximo:"40%"}[d.insalubridadeGrau]) + " × " + meses + "m", res.adicInsalubridade);
+  if (res.adicPericulosidade > 0) addRow("Adicional de Periculosidade", "R$ " + sal.toFixed(2) + " × 30% × " + meses + "m (Art. 193 CLT)", res.adicPericulosidade);
+  if (res.adicNoturno > 0) addRow("Adicional Noturno", "R$ " + sal.toFixed(2) + " ÷ 220 × 20% × " + d.horasNoturnasMensais + "h/mês × " + meses + "m", res.adicNoturno);
+
+  // Intervalo
+  if (res.intervaloIntrajornada > 0) addRow("Intervalo Intrajornada", "R$ " + sal.toFixed(2) + " ÷ 220 × 1,5 × " + (d.intervaloSuprimidoMinutos/60).toFixed(2) + "h/dia × " + (d.diasIntervaloSuprimido || meses*22) + " dias (Art. 71§4º)", res.intervaloIntrajornada);
+
+  // Salário-Família
+  if (res.salarioFamilia > 0) addRow("Salário-Família", "R$ 65,00 × " + d.filhosMenores + " filho(s) × " + meses + "m (Portaria MPS/MF 6/2025)", res.salarioFamilia);
+
+  // Variáveis
+  if (res.gratificacao > 0) addRow("Gratificação", "R$ " + d.gratificacaoMensal.toFixed(2) + "/mês × " + meses + "m", res.gratificacao);
+  if (res.gorjetas > 0) addRow("Gorjetas", "R$ " + d.gorjetasMensais.toFixed(2) + "/mês × " + meses + "m", res.gorjetas);
+  if (res.comissao > 0) addRow("Comissão", "R$ " + d.comissaoMensal.toFixed(2) + "/mês × " + meses + "m", res.comissao);
+
+  // Reflexo DSR
+  if (res.reflexoDSR > 0) addRow("Reflexo DSR 6,05%", "6,05% sobre total de variáveis (HE + gorjetas + comissões + ad. noturno)", res.reflexoDSR);
+
+  // PLR
+  if (res.plrProporcional > 0) addRow("PLR Proporcional", "R$ " + d.plrAnual.toFixed(2) + " ÷ 12 × " + (d.plrMesesTrabalhados || dem.m) + "m", res.plrProporcional);
+
+  // Estabilidade
+  if (res.estabilidade > 0) addRow("Indenização por Estabilidade", "R$ " + sal.toFixed(2) + " × " + d.estabilidadeMesesRestantes + " meses restantes (" + d.estabilidadeTipo + ")", res.estabilidade);
+
+  // Multas
+  if (res.multaArt477 > 0) addRow("Multa Art. 477 §8º CLT", "1 salário por atraso no pagamento rescisório", res.multaArt477);
+  if (res.multaArt467 > 0) addRow("Multa Art. 467 CLT", "50% das verbas incontroversas não pagas na 1ª audiência", res.multaArt467);
+  if (res.indenizacaoArt9 > 0) addRow("Inden. Art. 9º Lei 7.238/84", "1 salário — dispensa nos 30d antes da data-base", res.indenizacaoArt9);
+
+  // Total
+  const total = Object.values(res).reduce((a, b) => a + b, 0);
+  rows.push(["", "", ""]);
+  rows.push(["TOTAL", "", total]);
+  rows.push(["", "", ""]);
+  rows.push(["Gerado por RescisãoCalc — Ferramenta de apoio. Revisão por advogado habilitado indispensável.", "", ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws["!cols"] = [{ wch: 35 }, { wch: 70 }, { wch: 18 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Verbas Rescisórias");
+  XLSX.writeFile(wb, "rescisao_detalhamento.xlsx");
+}
+
 export default function App() {
   const [step, setStep] = useState(0);
   const [f, setF] = useState({ dataAdmissao: "", dataDemissao: "", salario: "", feriasVencidas: false, feriasVencidasQtd: "1", feriasEmDobroQtd: "0", tipoRescisao: "sem_justa_causa" });
@@ -498,8 +692,10 @@ export default function App() {
             <strong>Aviso Legal:</strong> {!dd ? "Valores são estimativas (ballpark figures). Anexe documentos para cálculo preciso." : "Valores baseados em dados extraidos por IA e validados pelo cliente."} Ferramenta de apoio - revisão por advogado habilitado indispensável. SM: R$ {SM.toFixed(2)} - Sal-Familia: R$ 65,00/filho (2025).
           </div>
 
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 18, gap: 10 }}>
+            <button className="btn" style={{ background: "linear-gradient(135deg,#0d5f2c,#1a8c4e)", color: "#fff" }} onClick={() => exportExcel(res, f, dd)}>📥 Exportar Excel</button>
             <button className="btn" style={{ background: "#eaeff3", color: "#2a4a6a" }} onClick={reset}>🔄 Novo Cálculo</button>
+              <button className="btn" style={{ background: "linear-gradient(135deg,#1a6b3a,#27ae60)", color: "#fff" }} onClick={() => exportXLSX(res, f, dd)}>📊 Exportar Excel</button>
           </div>
         </div>)}
 
