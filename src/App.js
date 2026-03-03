@@ -715,7 +715,7 @@ export default function App() {
                 const rem = sal + mv;
                 const impacto = (temC || (temG && f.gratAjustadaPeriod === "semestral")) ? "aviso, 13º, férias, FGTS" : "apenas 13º";
                 return <div style={{ marginTop: 8, padding: "8px 14px", background: "rgba(255,255,255,.08)", borderRadius: 8, fontSize: 12, color: "rgba(255,255,255,.85)", lineHeight: 1.5 }}>
-                  <strong style={{ color: "#ffd54f" }}>Remuneração:</strong> Sal. R$ {fmt(sal)} + {label} R$ {fmt(mv)}/mês = <strong>R$ {fmt(rem)}</strong> <span style={{ opacity: .7 }}>→ impacta {impacto}</span>
+                  <strong style={{ color: "#ffd54f" }}>Remuneração:</strong> Sal. {fmt(sal)} + {label} {fmt(mv)}/mês = <strong>{fmt(rem)}</strong> <span style={{ opacity: .7 }}>→ impacta {impacto}</span>
                 </div>;
               }
               return null;
