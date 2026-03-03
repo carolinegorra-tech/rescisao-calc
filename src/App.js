@@ -521,7 +521,7 @@ async function exportXLSX(res, f, dd) {
 
   // === CUSTO TOTAL ===
   ws.addRow([]).height = 4;
-  const custoTotal = sub + fgtsR + mFGTS + (f.calcEncargos ? (res.contribPrevidenciaria || 0) : 0);
+  const custoTotal = Object.values(res).reduce((a, b) => a + b, 0);
   const tRow = ws.addRow(["CUSTO TOTAL DA RESCISÃO", "", custoTotal]);
   ws.mergeCells(tRow.number, 1, tRow.number, 2);
   tRow.height = 42;
