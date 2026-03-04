@@ -316,7 +316,7 @@ async function exportXLSX(res, f, dd) {
   if (mfp < 0) mfp += 12;
   mfp = Math.max(0, Math.min(mfp + ((sjc || ac) ? Math.floor(dav / 30) : 0), 12));
 
-  const qtdFV = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
+  const qtdFV = f.feriasVencidas ? (parseInt(f.feriasVencidasQtd) || 1) : 0;
   const fvBase = qtdFV > 0 ? remF * qtdFV : 0, fvT = fvBase / 3;
   const qtdD = parseInt(f.feriasEmDobroQtd) || 0;
   const fdBase = remF * qtdD, fdT = fdBase / 3;
