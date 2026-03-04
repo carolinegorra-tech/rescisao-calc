@@ -132,7 +132,7 @@ function calc(f, dd) {
     r.feriasProporcionais = ((remFerias / 12) * mf) * (4 / 3);
   } else r.feriasProporcionais = 0;
 
-  const qtdF = parseInt(f.feriasVencidasQtd) || (f.feriasVencidas ? 1 : 0);
+  const qtdF = f.feriasVencidas ? (parseInt(f.feriasVencidasQtd) || 1) : 0;
   r.feriasVencidas = remFerias * (4 / 3) * qtdF;
 
   const qtdDobro = parseInt(f.feriasEmDobroQtd) || 0;
