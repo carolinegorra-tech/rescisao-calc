@@ -289,11 +289,11 @@ async function exportXLSX(res, f, dd) {
   const meses = mB(f.dataAdmissao, f.dataDemissao);
   const dem = pD(f.dataDemissao);
   const adm = pD(f.dataAdmissao);
+  const d = dd || {};
+  const t = f.tipoRescisao;
   const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo";
   const jc = t === "justa_causa";
   const dav = (sjc || ac) ? avD(meses) : 0;
-  const d = dd || {};
-  const t = f.tipoRescisao;
 
   const varTipos = f.tiposVariavel || [];
   const temComissao = varTipos.includes("comissao") || varTipos.includes("grat_mensal");
