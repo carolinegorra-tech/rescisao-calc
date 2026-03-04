@@ -289,7 +289,8 @@ async function exportXLSX(res, f, dd) {
   const meses = mB(f.dataAdmissao, f.dataDemissao);
   const dem = pD(f.dataDemissao);
   const adm = pD(f.dataAdmissao);
-  const dav = avD(meses);
+  const jc = t === "justa_causa";
+  const dav = (sjc || ac) ? avD(meses) : 0;
   const d = dd || {};
   const t = f.tipoRescisao;
   const sjc = t === "sem_justa_causa", ac = t === "mutuo_acordo";
@@ -436,6 +437,7 @@ async function exportXLSX(res, f, dd) {
   ws.addRow([]).height = 8;
 
   // === FGTS ===
+  if (!jc) {
   secHead("FGTS", GREEN);
   colHead(GREEN);
   let gi = 0;
@@ -444,6 +446,7 @@ async function exportXLSX(res, f, dd) {
   dataRow("Saldo FGTS Total", nr(saldoFE) + " + " + nr(fgtsR), saldoFT, VLGREEN, WHITE, gi++, false, true, GREEN);
   if (mFGTS > 0) dataRow("Multa " + (ac ? "20%" : "40%") + " FGTS", nr(saldoFT) + " × " + (ac ? "20%" : "40%"), mFGTS, VLGREEN, WHITE, gi++, false, true, GREEN);
   ws.addRow([]).height = 8;
+  }
 
   // === ENCARGOS ===
   if (f.calcEncargos) {
