@@ -441,10 +441,13 @@ async function exportXLSX(res, f, dd, lang) {
   mfp = Math.max(0, Math.min(mfp + ((sjc || ac) ? Math.floor(dav / 30) : 0), 12));
 
   const qtdFV = f.feriasVencidas ? (parseInt(f.feriasVencidasQtd) || 1) : 0;
-  const fvBase = qtdFV > 0 ? remF * qtdFV : 0, fvT = fvBase / 3;
   const qtdD = parseInt(f.feriasEmDobroQtd) || 0;
-  const fdBase = remF * qtdD, fdT = fdBase / 3;
-  const fpBase = (res.feriasProporcionais || 0) > 0 ? (remF / 12) * mfp : 0, fpT = fpBase / 3;
+  const fvTotal = res.feriasVencidas || 0;
+  const fvBase = fvTotal * 3/4, fvT = fvTotal * 1/4;
+  const fpTotal = res.feriasProporcionais || 0;
+  const fpBase = fpTotal * 3/4, fpT = fpTotal * 1/4;
+  const fdTotal = res.feriasEmDobro || 0;
+  const fdBase = fdTotal * 3/4, fdT = fdTotal * 1/4;
 
   const sS = res.saldoSalario || 0, av = res.avisoIndenizado || 0, v13 = res.decimoTerceiro || 0;
   const fgtsR = (sS + av + v13) * 0.08;
@@ -468,10 +471,18 @@ async function exportXLSX(res, f, dd, lang) {
   secC.height = 28;
   secC.eachCell(c => { c.font = fontA(11, true, WHITE); c.fill = fillC(DGRAY); c.alignment = { horizontal: "center", vertical: "middle" }; });
 
+  const TIPOS_EN = {
+    sem_justa_causa: "Termination Without Cause",
+    pedido_demissao: "Voluntary Resignation",
+    justa_causa: "Termination For Cause",
+    mutuo_acordo: "Mutual Agreement",
+  };
+  const tipoLabel = (lang === "en" ? TIPOS_EN : TIPOS)[t];
+
   const cData = [
     [L.admission + ": " + f.dataAdmissao, L.termination + ": " + f.dataDemissao, ""],
     [L.baseSalary + ": " + nr(sal), L.tenure + ": " + meses + " " + L.months, L.notice + ": " + dav + " " + L.days],
-    [L.type + ": " + TIPOS[t], "", ""],
+    [L.type + ": " + tipoLabel, "", ""],
   ];
   if (mediaVar > 0) {
     cData.push([L.variable + ": " + nr(mediaVar) + "/" + (lang === "en" ? "mo" : "mês"), L.remuneration + ": " + nr(remVal), L.impact + ": " + ((temComissao || gratSem) ? L.impactAll : L.impact13)]);
@@ -996,3 +1007,4 @@ const S = {
   chkB: { width: 18, height: 18, borderRadius: 4, border: "2px solid", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s", flexShrink: 0 },
   tot: { background: "linear-gradient(135deg,#0f2740,#1a3d5c 50%,#2a6496)", borderRadius: 13, padding: "24px 22px", boxShadow: "0 4px 18px rgba(26,58,92,.3)" },
 };
+
