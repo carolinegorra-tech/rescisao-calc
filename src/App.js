@@ -568,6 +568,61 @@ function EmployeeCard({ emp, onUpdate, onRemove, onCalc, showIndex }) {
             </div>
           </div>
 
+          {/* Remuneração Variável */}
+          <div style={{ marginTop: 8 }}>
+            <div onClick={() => s("temVariavel", !form.temVariavel)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, cursor: "pointer", border: "1.5px solid " + (form.temVariavel ? "#2980b9" : "#cbd5e0"), background: form.temVariavel ? "rgba(41,128,185,.04)" : "#f8fafb" }}>
+              <div style={{ width: 16, height: 16, borderRadius: 3, border: "2px solid " + (form.temVariavel ? "#2980b9" : "#aab4c0"), background: form.temVariavel ? "#2980b9" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {form.temVariavel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#1a2d3d" }}>Remuneração variável nos últimos 12 meses?</div>
+                <div style={{ fontSize: 10, color: "#7f8c9b" }}>Comissões, gratificações, PLR, prêmios</div>
+              </div>
+            </div>
+            {form.temVariavel && (
+              <div style={{ marginTop: 8, padding: "12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #e4eaf0" }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>Tipos de variável recebido</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {[["plr","PLR"],["premio","Prêmio"],["comissao","Comissões"],["grat_mensal","Gratif. mensal"],["grat_ajustada","Gratif. ajustada"]].map(([k,l]) => {
+                    const sel = (form.tiposVariavel || []).includes(k);
+                    return (
+                      <div key={k} onClick={() => {
+                        const cur = form.tiposVariavel || [];
+                        s("tiposVariavel", sel ? cur.filter(x => x !== k) : [...cur, k]);
+                      }} style={{ padding: "5px 10px", borderRadius: 14, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1.5px solid " + (sel ? "#2980b9" : "#cbd5e0"), background: sel ? "rgba(41,128,185,.08)" : "#fff", color: sel ? "#1a5276" : "#5a7080", transition: "all .2s" }}>{l}</div>
+                    );
+                  })}
+                </div>
+                {((form.tiposVariavel || []).includes("comissao") || (form.tiposVariavel || []).includes("grat_mensal")) && (
+                  <div style={{ marginTop: 10 }}>
+                    <F label="Média mensal (inc. DSR) nos últimos 12m (R$)" type="number" placeholder="Ex: 2500.00" value={form.comissaoMedia12} onChange={v => s("comissaoMedia12", v)} />
+                  </div>
+                )}
+                {(form.tiposVariavel || []).includes("grat_ajustada") && (
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <F label="Valor TOTAL gratificações ajustadas 12m (R$)" type="number" placeholder="Ex: 30000.00" value={form.gratAjustadaTotal} onChange={v => s("gratAjustadaTotal", v)} />
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5, marginBottom: 4 }}>Periodicidade</div>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        {[["semestral","Semestral ou menor"],["anual","Anual"]].map(([k,l]) => {
+                          const sel2 = form.gratAjustadaPeriod === k;
+                          return <div key={k} onClick={() => s("gratAjustadaPeriod", k)} style={{ padding: "6px 12px", borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1.5px solid " + (sel2 ? "#2980b9" : "#cbd5e0"), background: sel2 ? "rgba(41,128,185,.08)" : "#fff", color: sel2 ? "#1a5276" : "#5a7080", flex: 1, textAlign: "center" }}>{l}</div>;
+                        })}
+                      </div>
+                      {form.gratAjustadaPeriod === "semestral" && <div style={{ marginTop: 4, fontSize: 10, color: "#1a6b3a", fontWeight: 500 }}>Impacta tudo: 13º, férias, aviso, FGTS</div>}
+                      {form.gratAjustadaPeriod === "anual" && <div style={{ marginTop: 4, fontSize: 10, color: "#c0392b", fontWeight: 500 }}>Impacta somente o 13º</div>}
+                    </div>
+                  </div>
+                )}
+                {(form.tiposVariavel || []).some(t => ["comissao","grat_mensal","grat_ajustada"].includes(t)) && (
+                  <div style={{ marginTop: 8, padding: "7px 10px", background: "#e8f4fd", borderRadius: 7, border: "1px solid #b8d8f0", fontSize: 10, color: "#1a5276", lineHeight: 1.5 }}>
+                    <strong>Impacto:</strong> Média soma ao salário base = <strong>remuneração</strong>, nova base de cálculo.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Upload docs */}
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: "#4a6a7f", textTransform: "uppercase", letterSpacing: .5, marginBottom: 6 }}>Documentos (opcional)</div>
