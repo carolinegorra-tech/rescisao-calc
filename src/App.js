@@ -701,7 +701,7 @@ function EmployeeCard({ emp, onUpdate, onRemove, onCalc, showIndex }) {
             <div style={{ marginTop: 12, padding: "10px 14px", background: "linear-gradient(90deg,#eef6fd,#f5f9fd)", borderRadius: 8, border: "1px solid #b8d8f0" }}>
               <div style={{ fontSize: 11, color: "#5a7080", marginBottom: 6 }}>Principais verbas:</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {Object.entries(result).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => (
+                {Object.entries(result).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
                   <div key={k} style={{ fontSize: 10, padding: "3px 8px", background: "#fff", borderRadius: 6, border: "1px solid #d6eaf8", color: "#1a3d5c" }}>
                     {V[k]?.i} {V[k]?.l}: <strong>{fmt(v)}</strong>
                   </div>
@@ -963,4 +963,5 @@ export default function App() {
     </div>
   );
 }
+
 
