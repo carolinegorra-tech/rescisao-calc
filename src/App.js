@@ -106,11 +106,14 @@ function calc(f, dd) {
   } else r.decimoTerceiro = 0;
 
   if (!jc) {
+    // Férias proporcionais: apenas meses COMPLETOS desde o último aniversário — CLT não arredonda
     let anivAno = dem.y;
     if (dem.m < adm.m || (dem.m === adm.m && dem.d < adm.d)) anivAno--;
-    let mf = (dem.y - anivAno) * 12 + (dem.m - adm.m);
+    // meses completos: só conta o mês atual se dem.d >= adm.d
+    let mf = (dem.m - adm.m);
     if (dem.m < adm.m) mf = dem.m + 12 - adm.m;
     if (anivAno === dem.y) mf = dem.m - adm.m;
+    if (dem.d < adm.d) mf = Math.max(0, mf - 1); // mês incompleto: não conta
     if (mf < 0) mf += 12;
     mf += ((sjc || ac) ? Math.floor(dav / 30) : 0);
     mf = Math.max(0, Math.min(mf, 12));
@@ -963,5 +966,3 @@ export default function App() {
     </div>
   );
 }
-
-
