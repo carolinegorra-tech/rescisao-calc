@@ -4,37 +4,37 @@ const SM = 1518.0;
 const DSR = 0.0605;
 
 const V = {
-  saldoSalario:          { l: "Saldo de Salário",                    i: "💰", d: "Dias trabalhados no mês da rescisão" },
-  avisoIndenizado:       { l: "Aviso Prévio Indenizado",             i: "📅", d: "30d + 3d/ano (máx 90d) — Lei 12.506/2011" },
-  decimoTerceiro:        { l: "13º Salário Proporcional",            i: "🎄", d: "Meses no ano ÷ 12 c/ projeção do aviso" },
-  feriasProporcionais:   { l: "Férias Proporcionais + ⅓",            i: "🏖️", d: "Meses desde último per. aquisitivo + 1/3" },
-  feriasVencidas:        { l: "Férias Vencidas + ⅓",                 i: "⏰", d: "Períodos aquisitivos não gozados" },
-  feriasEmDobro:         { l: "Férias em Dobro (Art. 137)",          i: "⚠️", d: "Período concessivo expirado" },
-  multaFGTS:             { l: "Multa 40% FGTS",                      i: "🏦", d: "40% sobre saldo FGTS (20% mútuo acordo)" },
-  horasExtras:           { l: "Horas Extras",                        i: "⏱️", d: "Sal÷220 × (1+%) × média mensal × meses" },
-  adicInsalubridade:     { l: "Adicional de Insalubridade",          i: "☣️", d: "10/20/40% do SM × meses" },
-  adicPericulosidade:    { l: "Adicional de Periculosidade",         i: "⚡", d: "30% do salário-base × meses" },
-  adicNoturno:           { l: "Adicional Noturno",                   i: "🌙", d: "20% sobre hora normal × meses" },
-  intervaloIntrajornada: { l: "Intervalo Intrajornada Suprimido",    i: "🍽️", d: "Período suprimido + 50% — Art. 71 §4º" },
-  salarioFamilia:        { l: "Salário-Família",                     i: "👨‍👩‍👧", d: "R$65,00/filho ≤14a × meses" },
-  gratificacao:          { l: "Gratificação",                        i: "🎁", d: "Valores habituais × meses" },
-  gorjetas:              { l: "Gorjetas",                            i: "🍷", d: "Média mensal × meses" },
-  comissao:              { l: "Comissão",                            i: "📈", d: "Média mensal × meses" },
-  reflexoDSR:            { l: "Reflexo DSR s/ Variável",             i: "📊", d: "6,05% sobre parcelas variáveis" },
-  plrProporcional:       { l: "PLR Proporcional",                    i: "💵", d: "Valor anual ÷ 12 × meses" },
-  estabilidade:          { l: "Indenização por Estabilidade",        i: "🛡️", d: "Salários do período restante" },
-  multaArt467:           { l: "Multa Art. 467 CLT",                  i: "⚖️", d: "50% verbas incontroversas" },
-  multaArt477:           { l: "Multa Art. 477 CLT",                  i: "📜", d: "1 salário — atraso no pagamento" },
-  indenizacaoArt9:       { l: "Inden. Art. 9º Lei 7.238/84",        i: "🔒", d: "1 salário — 30d antes data-base" },
-  fgtsDepositoRescisorio:{ l: "FGTS 8% sobre Rescisórias",          i: "🏦", d: "8% sobre saldo sal. + aviso + 13º" },
-  contribPrevidenciaria: { l: "Contribuição Previdenciária",         i: "🏛️", d: "Patronal sobre verbas salariais" },
+  saldoSalario:          { l: "Saldo de Salário",                    en: "Salary Balance",                    i: "💰", d: "Dias trabalhados no mês da rescisão",            de: "Days worked in termination month" },
+  avisoIndenizado:       { l: "Aviso Prévio Indenizado",             en: "Notice Pay (Indemnified)",          i: "📅", d: "30d + 3d/ano (máx 90d) — Lei 12.506/2011",      de: "30d + 3d/yr (max 90d) — Law 12,506/2011" },
+  decimoTerceiro:        { l: "13º Salário Proporcional",            en: "13th Salary (Proportional)",        i: "🎄", d: "Meses no ano ÷ 12 c/ projeção do aviso",        de: "Months in year ÷ 12 w/ notice projection" },
+  feriasProporcionais:   { l: "Férias Proporcionais + ⅓",            en: "Proportional Vacation + ⅓",         i: "🏖️", d: "Meses desde último per. aquisitivo + 1/3",       de: "Months since last accrual period + 1/3" },
+  feriasVencidas:        { l: "Férias Vencidas + ⅓",                 en: "Accrued Vacation + ⅓",              i: "⏰", d: "Períodos aquisitivos não gozados",              de: "Unused accrual periods" },
+  feriasEmDobro:         { l: "Férias em Dobro (Art. 137)",          en: "Double Vacation (Art. 137)",        i: "⚠️", d: "Período concessivo expirado",                   de: "Expired concession period" },
+  multaFGTS:             { l: "Multa 40% FGTS",                      en: "FGTS 40% Penalty",                  i: "🏦", d: "40% sobre saldo FGTS (20% mútuo acordo)",       de: "40% on FGTS balance (20% mutual agreement)" },
+  horasExtras:           { l: "Horas Extras",                        en: "Overtime",                          i: "⏱️", d: "Sal÷220 × (1+%) × média mensal × meses",       de: "Salary÷220 × (1+%) × monthly avg × months" },
+  adicInsalubridade:     { l: "Adicional de Insalubridade",          en: "Unhealthy Work Premium",            i: "☣️", d: "10/20/40% do SM × meses",                      de: "10/20/40% of min. wage × months" },
+  adicPericulosidade:    { l: "Adicional de Periculosidade",         en: "Hazard Pay",                        i: "⚡", d: "30% do salário-base × meses",                   de: "30% of base salary × months" },
+  adicNoturno:           { l: "Adicional Noturno",                   en: "Night Shift Premium",               i: "🌙", d: "20% sobre hora normal × meses",                de: "20% over regular hourly rate × months" },
+  intervaloIntrajornada: { l: "Intervalo Intrajornada Suprimido",    en: "Suppressed Break Indemnity",        i: "🍽️", d: "Período suprimido + 50% — Art. 71 §4º",        de: "Suppressed period + 50% — Art. 71 §4" },
+  salarioFamilia:        { l: "Salário-Família",                     en: "Family Allowance",                  i: "👨‍👩‍👧", d: "R$65,00/filho ≤14a × meses",                   de: "R$65.00/child ≤14y × months" },
+  gratificacao:          { l: "Gratificação",                        en: "Bonus/Gratification",               i: "🎁", d: "Valores habituais × meses",                    de: "Customary amounts × months" },
+  gorjetas:              { l: "Gorjetas",                            en: "Tips",                              i: "🍷", d: "Média mensal × meses",                         de: "Monthly average × months" },
+  comissao:              { l: "Comissão",                            en: "Commission",                        i: "📈", d: "Média mensal × meses",                         de: "Monthly average × months" },
+  reflexoDSR:            { l: "Reflexo DSR s/ Variável",             en: "Weekly Rest Reflex on Variable",    i: "📊", d: "6,05% sobre parcelas variáveis",               de: "6.05% on variable payments" },
+  plrProporcional:       { l: "PLR Proporcional",                    en: "Profit Sharing (Proportional)",     i: "💵", d: "Valor anual ÷ 12 × meses",                    de: "Annual amount ÷ 12 × months" },
+  estabilidade:          { l: "Indenização por Estabilidade",        en: "Job Stability Indemnity",           i: "🛡️", d: "Salários do período restante",                 de: "Salaries for remaining protected period" },
+  multaArt467:           { l: "Multa Art. 467 CLT",                  en: "Penalty Art. 467 CLT",              i: "⚖️", d: "50% verbas incontroversas",                   de: "50% of undisputed amounts" },
+  multaArt477:           { l: "Multa Art. 477 CLT",                  en: "Penalty Art. 477 CLT",              i: "📜", d: "1 salário — atraso no pagamento",              de: "1 salary — late payment" },
+  indenizacaoArt9:       { l: "Inden. Art. 9º Lei 7.238/84",        en: "Indemnity Art. 9 Law 7,238/84",    i: "🔒", d: "1 salário — 30d antes data-base",              de: "1 salary — 30d before base date" },
+  fgtsDepositoRescisorio:{ l: "FGTS 8% sobre Rescisórias",          en: "FGTS 8% on Severance",              i: "🏦", d: "8% sobre saldo sal. + aviso + 13º",            de: "8% on salary bal. + notice + 13th" },
+  contribPrevidenciaria: { l: "Contribuição Previdenciária",         en: "Social Security Contribution",      i: "🏛️", d: "Patronal sobre verbas salariais",              de: "Employer contribution on salary items" },
 };
 
 const TIPOS = {
-  sem_justa_causa: "Sem Justa Causa",
-  pedido_demissao: "Pedido de Demissão",
-  justa_causa: "Justa Causa",
-  mutuo_acordo: "Mútuo Acordo",
+  sem_justa_causa: { pt: "Sem Justa Causa", en: "Without Just Cause" },
+  pedido_demissao: { pt: "Pedido de Demissão", en: "Voluntary Resignation" },
+  justa_causa: { pt: "Justa Causa", en: "Just Cause" },
+  mutuo_acordo: { pt: "Mútuo Acordo", en: "Mutual Agreement" },
 };
 
 const EDIT_FIELDS = [
@@ -139,13 +139,13 @@ function calc(f, dd) {
   r.comissao = (d.comissaoMensal > 0) ? d.comissaoMensal * meses : 0;
 
   const fgtsSobreRescisao = (r.saldoSalario + r.avisoIndenizado + r.decimoTerceiro) * 0.08;
-  let fgtsTotal;
+  let fgtsBalance;
   if (d.saldoFGTS != null) {
-    fgtsTotal = d.saldoFGTS + fgtsSobreRescisao;
+    fgtsBalance = d.saldoFGTS;
   } else {
-    fgtsTotal = (remFGTS * 0.08 * meses) + fgtsSobreRescisao;
+    fgtsBalance = remFGTS * 0.08 * meses;
   }
-  r.multaFGTS = sjc ? fgtsTotal * 0.40 : ac ? fgtsTotal * 0.20 : 0;
+  r.multaFGTS = sjc ? fgtsBalance * 0.40 : ac ? fgtsBalance * 0.20 : 0;
 
   const varT = (r.horasExtras || 0) + (r.gorjetas || 0) + (r.comissao || 0) + (r.adicNoturno || 0);
   r.reflexoDSR = varT * DSR;
@@ -165,7 +165,8 @@ function calc(f, dd) {
   r.fgtsDepositoRescisorio = f.calcEncargos ? fgtsSobreRescisao : 0;
   if (f.calcEncargos) {
     const percPrev = parseFloat(f.percPrevidencia || 28.8) / 100;
-    const basePrevidencia = r.saldoSalario + r.avisoIndenizado + r.decimoTerceiro +
+    const basePrevidencia = r.saldoSalario + r.decimoTerceiro +
+      (r.feriasProporcionais || 0) + (r.feriasVencidas || 0) + (r.feriasEmDobro || 0) +
       (r.horasExtras || 0) + (r.adicInsalubridade || 0) + (r.adicPericulosidade || 0) +
       (r.adicNoturno || 0) + (r.comissao || 0) + (r.gorjetas || 0) + (r.gratificacao || 0);
     r.contribPrevidenciaria = basePrevidencia * percPrev;
@@ -247,7 +248,7 @@ async function exportXLSXColetivo(employees, lang = "pt") {
 
     const row = wsSummary.addRow([
       emp.form.nome || `Func. ${idx + 1}`,
-      TIPOS[emp.form.tipoRescisao],
+      TIPOS[emp.form.tipoRescisao]?.[lang === "en" ? "en" : "pt"],
       `${meses}m`,
       parseFloat(emp.form.salario) || 0,
       res.saldoSalario || 0,
@@ -322,7 +323,7 @@ async function exportXLSXColetivo(employees, lang = "pt") {
 
     const infoRows = [
       [(lang === "en" ? "Admission: " : "Admissão: ") + f.dataAdmissao, (lang === "en" ? "Termination: " : "Demissão: ") + f.dataDemissao, ""],
-      [(lang === "en" ? "Salary: " : "Salário: ") + fmt(sal), (lang === "en" ? "Tenure: " : "Tempo: ") + meses + "m", (lang === "en" ? "Type: " : "Tipo: ") + TIPOS[f.tipoRescisao]],
+      [(lang === "en" ? "Salary: " : "Salário: ") + fmt(sal), (lang === "en" ? "Tenure: " : "Tempo: ") + meses + "m", (lang === "en" ? "Type: " : "Tipo: ") + TIPOS[f.tipoRescisao]?.[lang === "en" ? "en" : "pt"]],
     ];
     infoRows.forEach((r, i) => {
       const row = ws.addRow(r);
@@ -345,7 +346,7 @@ async function exportXLSXColetivo(employees, lang = "pt") {
     let vi = 0;
     const pos = Object.entries(res).filter(([_, v]) => v > 0.005);
     pos.forEach(([k, v]) => {
-      const row = ws.addRow([V[k]?.l || k, V[k]?.d || "", v]);
+      const row = ws.addRow([lang === "en" ? (V[k]?.en || V[k]?.l || k) : (V[k]?.l || k), lang === "en" ? (V[k]?.de || V[k]?.d || "") : (V[k]?.d || ""), v]);
       row.height = 22;
       const bg = vi % 2 === 0 ? VLBLUE : WHITE;
       row.getCell(1).font = fontA(10, false);
@@ -384,7 +385,7 @@ async function exportXLSXColetivo(employees, lang = "pt") {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "dispensa_coletiva.xlsx";
+  a.download = lang === "en" ? "collective_termination.xlsx" : "dispensa_coletiva.xlsx";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -511,8 +512,8 @@ function EmployeeCard({ emp, onUpdate, onRemove, onCalc, showIndex }) {
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2d3d" }}>{form.nome || `Funcionário ${showIndex}`}</div>
             {result
-              ? <div style={{ fontSize: 12, color: "#2980b9", fontWeight: 600 }}><AV value={total} /> — {meses}m · {TIPOS[form.tipoRescisao]}</div>
-              : <div style={{ fontSize: 11, color: "#8a96a3" }}>{ok ? `${meses}m · ${TIPOS[form.tipoRescisao]}` : "Preencha os dados"}</div>
+              ? <div style={{ fontSize: 12, color: "#2980b9", fontWeight: 600 }}><AV value={total} /> — {meses}m · {TIPOS[form.tipoRescisao]?.pt}</div>
+              : <div style={{ fontSize: 11, color: "#8a96a3" }}>{ok ? `${meses}m · ${TIPOS[form.tipoRescisao]?.pt}` : "Preencha os dados"}</div>
             }
           </div>
         </div>
@@ -535,7 +536,7 @@ function EmployeeCard({ emp, onUpdate, onRemove, onCalc, showIndex }) {
             <F label="Data de Admissão" type="date" value={form.dataAdmissao} onChange={v => s("dataAdmissao", v)} />
             <F label="Data de Demissão" type="date" value={form.dataDemissao} onChange={v => s("dataDemissao", v)} />
             <F label="Salário Atual (R$)" type="number" placeholder="5000.00" value={form.salario} onChange={v => s("salario", v)} />
-            <F label="Tipo de Rescisão" select options={TIPOS} value={form.tipoRescisao} onChange={v => s("tipoRescisao", v)} />
+            <F label="Tipo de Rescisão" select options={Object.fromEntries(Object.entries(TIPOS).map(([k, v]) => [k, v.pt]))} value={form.tipoRescisao} onChange={v => s("tipoRescisao", v)} />
           </div>
 
           {/* Férias */}
@@ -943,7 +944,7 @@ export default function App() {
                 ["Férias + ⅓", "(Sal / 12) × meses desde aniversário + 1/3 constitucional"],
                 ["Férias Vencidas", "Sal + 1/3 por período aquisitivo não gozado"],
                 ["Férias em Dobro", "Art. 137 CLT: prazo concessivo expirado"],
-                ["Multa 40% FGTS", "(Saldo FGTS + 8% rescisórias) × 40% ou 20%"],
+                ["Multa 40% FGTS", "Saldo FGTS (depósitos mensais) × 40% ou 20%"],
                 ["Horas Extras", "(Sal / 220) × (1 + %) × média/mês × meses"],
                 ["Insalubridade", `SM R$${SM.toFixed(2)} × grau (10/20/40%) × meses`],
                 ["Periculosidade", "Sal × 30% × meses — Art. 193 CLT"],
